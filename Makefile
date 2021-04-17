@@ -1,6 +1,6 @@
 include config.mk
 
-SRC = util.c
+SRC = util.c str.c
 OBJ = ${SRC:.c=.o}
 
 .c.o:
