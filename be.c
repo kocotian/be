@@ -1,13 +1,27 @@
+#include <ctype.h>
+#include <errno.h>
 #include <termios.h>
 #include <unistd.h>
 
 #include <util.h>
 
+/* macros */
+#define CTRL_KEY(KEY) ((KEY) & 0x1f)
+
+/* prototypes */
 static void rawRestore(void);
 static void rawOn(void);
+/*********/
+static unsigned char editorGetKey(int fd);
+static void edit(void);
+static void editorParseKey(unsigned char key);
+/*********/
+static void finish(void);
 
+/* global variables */
 static struct termios origtermios;
 
+/* terminal */
 static void
 rawOn(void)
 {
@@ -33,11 +47,50 @@ rawRestore(void)
 		die("tcsetattr:");
 }
 
+/* editor */
+static unsigned char
+editorGetKey(int fd)
+{
+	ssize_t rb;
+	unsigned char c;
+
+	while ((rb = read(fd, &c, 1)) != 1)
+		if (rb < 0 && errno != EAGAIN)
+			die("read:");
+	return c;
+}
+
+static void
+editorParseKey(unsigned char key)
+{
+	switch (key) {
+	case 'Q':
+		finish(); break;
+	}
+}
+
+static void
+edit(void)
+{
+	while (1) {
+		editorParseKey(editorGetKey(STDIN_FILENO));
+	}
+}
+
+/* other */
+static void
+finish(void)
+{
+	rawRestore();
+	exit(0);
+}
+
 int
 main(int argc, char *argv[])
 {
 	rawOn();
-	/* code */
-	rawRestore();
+	edit();
+	finish();
+
 	return 0;
 }
