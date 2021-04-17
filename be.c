@@ -20,13 +20,11 @@
 #include <ctype.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
 
 #include <util.h>
-
-/* macros */
-#define CTRL_KEY(KEY) ((KEY) & 0x1f)
 
 /* types */
 typedef enum Mod {
@@ -51,18 +49,26 @@ typedef struct Key {
 /* prototypes */
 static void rawRestore(void);
 static void rawOn(void);
+static void getws(int *r, int *c);
 /*********/
-static unsigned char editorGetKey(int fd);
+static void termRefresh(void);
+static void drawRows(void);
+/*********/
+static unsigned char editorGetKey(void);
 static void edit(void);
 static void editorParseKey(unsigned char key);
 /*********/
+static void setup(void);
 static void finish(void);
 /*********/
-static void quit(Arg *arg);
+static void quit(const Arg *arg);
 
 /* global variables */
 #include "config.h"
-static struct termios origtermios;
+static struct {
+	struct termios origtermios;
+	int r, c;
+} terminal;
 
 /* terminal */
 static void
@@ -70,9 +76,9 @@ rawOn(void)
 {
 	struct termios raw;
 
-	if (tcgetattr(STDIN_FILENO, &origtermios) < 0)
+	if (tcgetattr(STDIN_FILENO, &(terminal.origtermios)) < 0)
 		die("tcgetattr:");
-	raw = origtermios;
+	raw = (terminal.origtermios);
 	raw.c_cflag |= (CS8);
 	raw.c_iflag &= (tcflag_t)~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
 	raw.c_lflag &= (tcflag_t)~(ECHO | ICANON | IEXTEN | ISIG);
@@ -86,18 +92,47 @@ rawOn(void)
 static void
 rawRestore(void)
 {
-	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &origtermios) < 0)
+	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &(terminal.origtermios)) < 0)
 		die("tcsetattr:");
+}
+
+static void
+getws(int *r, int *c)
+{
+	struct winsize ws;
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) < 0)
+		die("ioctl:");
+	if (ws.ws_col < 20 || ws.ws_row < 3)
+		die("screen is too small (min. 20x3)");
+	*c = ws.ws_col;
+	*r = ws.ws_row;
+}
+
+/* output */
+
+static void
+termRefresh(void)
+{
+	write(STDOUT_FILENO, "\033[2J\033[H", 7);
+	drawRows();
+}
+
+static void
+drawRows(void)
+{
+	size_t y;
+	for (y = 0; y < (terminal.r - 2); ++y)
+		write(STDOUT_FILENO, "~\r\n", (y < (terminal.r - 3)) ? 3 : 1);
 }
 
 /* editor */
 static unsigned char
-editorGetKey(int fd)
+editorGetKey(void)
 {
 	ssize_t rb;
 	unsigned char c;
 
-	while ((rb = read(fd, &c, 1)) != 1)
+	while ((rb = read(STDIN_FILENO, &c, 1)) != 1)
 		if (rb < 0 && errno != EAGAIN)
 			die("read:");
 	return c;
@@ -119,21 +154,29 @@ static void
 edit(void)
 {
 	while (1) {
-		editorParseKey(editorGetKey(STDIN_FILENO));
+		editorParseKey(editorGetKey());
 	}
 }
 
 /* other */
 static void
+setup(void)
+{
+	rawOn();
+	getws(&(terminal.r), &(terminal.c));
+}
+
+static void
 finish(void)
 {
 	rawRestore();
+	termRefresh();
 	exit(0);
 }
 
 /* editor functions */
 static void
-quit(Arg *arg)
+quit(const Arg *arg)
 {
 	(void)arg;
 	finish();
@@ -142,7 +185,7 @@ quit(Arg *arg)
 int
 main(int argc, char *argv[])
 {
-	rawOn();
+	setup();
 	edit();
 	finish();
 
