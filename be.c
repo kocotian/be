@@ -28,6 +28,26 @@
 /* macros */
 #define CTRL_KEY(KEY) ((KEY) & 0x1f)
 
+/* types */
+typedef enum Mod {
+	ModNone = 0, ModControl = 0x1f, ModShift = 0xdf,
+} Mod;
+
+typedef union Arg {
+	int i;
+	unsigned int ui;
+	char c;
+	float f;
+	const void *v;
+} Arg;
+
+typedef struct Key {
+	Mod mod;
+	unsigned char key;
+	void (*func)(const Arg *);
+	const Arg arg;
+} Key;
+
 /* prototypes */
 static void rawRestore(void);
 static void rawOn(void);
@@ -37,8 +57,11 @@ static void edit(void);
 static void editorParseKey(unsigned char key);
 /*********/
 static void finish(void);
+/*********/
+static void quit(Arg *arg);
 
 /* global variables */
+#include "config.h"
 static struct termios origtermios;
 
 /* terminal */
@@ -83,10 +106,13 @@ editorGetKey(int fd)
 static void
 editorParseKey(unsigned char key)
 {
-	switch (key) {
-	case 'Q':
-		finish(); break;
-	}
+	size_t i;
+	for (i = 0; i < LEN(bindings); ++i)
+		if (key == (bindings[i].key & bindings[i].mod)) {
+			(bindings[i].func)(&(bindings[i].arg));
+			return;
+		}
+	/* TODO: information that key is not bound */
 }
 
 static void
@@ -103,6 +129,14 @@ finish(void)
 {
 	rawRestore();
 	exit(0);
+}
+
+/* editor functions */
+static void
+quit(Arg *arg)
+{
+	(void)arg;
+	finish();
 }
 
 int

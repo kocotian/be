@@ -3,6 +3,8 @@
 #ifndef _UTIL_H
 #define _UTIL_H
 
+#define LEN(X)                  (sizeof (X) / sizeof *(X))
+
 #define MAX(A, B)               ((signed)(A) > (signed)(B) ? (signed)(A) : (signed)(B))
 #define MIN(A, B)               ((signed)(A) < (signed)(B) ? (signed)(A) : (signed)(B))
 #define BETWEEN(X, A, B)        ((signed)(A) <= (signed)(X) && (signed)(X) <= (signed)(B))
