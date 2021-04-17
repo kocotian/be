@@ -24,6 +24,7 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include <str.h>
 #include <util.h>
 
 /* types */
@@ -52,7 +53,10 @@ static void rawOn(void);
 static void getws(int *r, int *c);
 /*********/
 static void termRefresh(void);
-static void drawRows(void);
+static void appendRows(String *ab);
+/*********/
+static void abAppend(String *ab, const char *str, size_t len);
+static void abFree(String *ab);
 /*********/
 static unsigned char editorGetKey(void);
 static void edit(void);
@@ -109,20 +113,41 @@ getws(int *r, int *c)
 }
 
 /* output */
-
 static void
 termRefresh(void)
 {
-	write(STDOUT_FILENO, "\033[2J\033[H", 7);
-	drawRows();
+	String ab = { NULL, 0 };
+	abAppend(&ab, "\033[?25l\033[H", 9);
+	appendRows(&ab);
+	abAppend(&ab, "\033[H\033[?25h", 9);
+	if ((unsigned)write(STDOUT_FILENO, ab.data, ab.len) != ab.len)
+		die("write:");
+	abFree(&ab);
 }
 
 static void
-drawRows(void)
+appendRows(String *ab)
 {
 	size_t y;
-	for (y = 0; y < (terminal.r - 2); ++y)
-		write(STDOUT_FILENO, "~\r\n", (y < (terminal.r - 3)) ? 3 : 1);
+	for (y = 0; y < (unsigned)(terminal.r - 2); ++y)
+		abAppend(ab, "\033[K~\r\n", (y < (unsigned)(terminal.r - 3)) ? 6 : 4);
+}
+
+/* append buffer */
+static void
+abAppend(String *ab, const char *str, size_t len)
+{
+	char *nb;
+	if ((nb = realloc(ab->data, ab->len + len)) == NULL)
+		return;
+	memcpy((ab->data = nb) + ab->len, str, len);
+	ab->len += len;
+}
+
+static void
+abFree(String *ab)
+{
+	free(ab->data);
 }
 
 /* editor */
@@ -154,6 +179,7 @@ static void
 edit(void)
 {
 	while (1) {
+		termRefresh();
 		editorParseKey(editorGetKey());
 	}
 }
