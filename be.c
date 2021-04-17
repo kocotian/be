@@ -19,6 +19,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
@@ -48,9 +49,16 @@ typedef struct Key {
 	const Arg arg;
 } Key;
 
+typedef struct Buffer {
+	Array(String) rows;
+	char path[PATH_MAX], name[PATH_MAX];
+	int anonymous, dirty;
+	int x, y;
+} Buffer;
+
 /* prototypes */
-static void rawRestore(void);
 static void rawOn(void);
+static void rawRestore(void);
 static void getws(int *r, int *c);
 /*********/
 static void termRefresh(void);
@@ -60,8 +68,10 @@ static void abAppend(String *ab, const char *str, size_t len);
 static void abFree(String *ab);
 /*********/
 static unsigned char editorGetKey(void);
-static void edit(void);
 static void editorParseKey(unsigned char key);
+static void edit(void);
+/*********/
+static void newBuffer(Buffer *buf);
 /*********/
 static void setup(void);
 static void finish(void);
@@ -73,8 +83,12 @@ static void quit(const Arg *arg);
 static struct {
 	struct termios origtermios;
 	int r, c;
-	int x, y;
 } terminal;
+
+static struct {
+	Array(Buffer) bufs;
+	int curbuf;
+} editor;
 
 /* terminal */
 static void
@@ -124,7 +138,7 @@ termRefresh(void)
 	abAppend(&ab, "\033[?25l\033[H", 9);
 	appendRows(&ab);
 	abAppend(&ab, cp, (unsigned)snprintf(cp, 19, "\033[%4d;%4dH\033[?25h",
-				((terminal.r - 1) / 2), terminal.x + 1));
+				((terminal.r - 1) / 2), editor.bufs.data[editor.curbuf].x + 1));
 
 	if ((unsigned)write(STDOUT_FILENO, ab.data, ab.len) != ab.len)
 		die("write:");
@@ -191,13 +205,37 @@ edit(void)
 	}
 }
 
+/* buffers */
+static void
+newBuffer(Buffer *buf)
+{
+	Buffer init;
+	String ln = {
+		"", 0
+	};
+
+	if (buf == NULL)
+		buf = &init;
+
+	newVector(buf->rows);
+	pushVector(buf->rows, ln);
+	*(buf->path) = *(buf->name) = '\0';
+	buf->anonymous = buf->dirty = 1;
+	buf->x = buf->y = 0;
+
+	if (buf == &init)
+		pushVector(editor.bufs, init);
+}
+
 /* other */
 static void
 setup(void)
 {
 	rawOn();
 	getws(&(terminal.r), &(terminal.c));
-	terminal.x = terminal.y = 0;
+	newVector(editor.bufs);
+	newBuffer(NULL);
+	editor.curbuf = 0;
 }
 
 static void
