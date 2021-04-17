@@ -73,7 +73,7 @@ static void quit(const Arg *arg);
 static struct {
 	struct termios origtermios;
 	int r, c;
-	int cx, cy;
+	int x, y;
 } terminal;
 
 /* terminal */
@@ -123,8 +123,8 @@ termRefresh(void)
 
 	abAppend(&ab, "\033[?25l\033[H", 9);
 	appendRows(&ab);
-	abAppend(&ab, cp, snprintf(cp, 19, "\033[%4d;%4dH\033[?25h",
-				terminal.cy + 1, terminal.cx + 1));
+	abAppend(&ab, cp, (unsigned)snprintf(cp, 19, "\033[%4d;%4dH\033[?25h",
+				((terminal.r - 1) / 2), terminal.x + 1));
 
 	if ((unsigned)write(STDOUT_FILENO, ab.data, ab.len) != ab.len)
 		die("write:");
@@ -197,7 +197,7 @@ setup(void)
 {
 	rawOn();
 	getws(&(terminal.r), &(terminal.c));
-	terminal.cx = terminal.cy = 0;
+	terminal.x = terminal.y = 0;
 }
 
 static void
