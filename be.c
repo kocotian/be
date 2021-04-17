@@ -19,6 +19,7 @@
 
 #include <ctype.h>
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <termios.h>
@@ -72,6 +73,7 @@ static void quit(const Arg *arg);
 static struct {
 	struct termios origtermios;
 	int r, c;
+	int cx, cy;
 } terminal;
 
 /* terminal */
@@ -117,11 +119,16 @@ static void
 termRefresh(void)
 {
 	String ab = { NULL, 0 };
+	char cp[19];
+
 	abAppend(&ab, "\033[?25l\033[H", 9);
 	appendRows(&ab);
-	abAppend(&ab, "\033[H\033[?25h", 9);
+	abAppend(&ab, cp, snprintf(cp, 19, "\033[%4d;%4dH\033[?25h",
+				terminal.cy + 1, terminal.cx + 1));
+
 	if ((unsigned)write(STDOUT_FILENO, ab.data, ab.len) != ab.len)
 		die("write:");
+
 	abFree(&ab);
 }
 
@@ -190,6 +197,7 @@ setup(void)
 {
 	rawOn();
 	getws(&(terminal.r), &(terminal.c));
+	terminal.cx = terminal.cy = 0;
 }
 
 static void
