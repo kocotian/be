@@ -29,6 +29,8 @@
 #include <str.h>
 #include <util.h>
 
+#define CURBUF(EDITOR) ((EDITOR).bufs.data[(EDITOR).curbuf])
+
 /* types */
 typedef enum Mod {
 	ModNone = 0, ModControl = 0x1f, ModShift = 0xdf,
@@ -63,6 +65,7 @@ static void getws(int *r, int *c);
 /*********/
 static void termRefresh(void);
 static void appendRows(String *ab);
+static void appendContents(String *ab);
 /*********/
 static void abAppend(String *ab, const char *str, size_t len);
 static void abFree(String *ab);
@@ -137,8 +140,9 @@ termRefresh(void)
 
 	abAppend(&ab, "\033[?25l\033[H", 9);
 	appendRows(&ab);
+	appendContents(&ab);
 	abAppend(&ab, cp, (unsigned)snprintf(cp, 19, "\033[%4d;%4dH\033[?25h",
-				((terminal.r - 1) / 2), editor.bufs.data[editor.curbuf].x + 1));
+				FOCUSPOINT, CURBUF(editor).x + 1));
 
 	if ((unsigned)write(STDOUT_FILENO, ab.data, ab.len) != ab.len)
 		die("write:");
@@ -152,6 +156,18 @@ appendRows(String *ab)
 	size_t y;
 	for (y = 0; y < (unsigned)(terminal.r - 2); ++y)
 		abAppend(ab, "\033[K~\r\n", (y < (unsigned)(terminal.r - 3)) ? 6 : 4);
+}
+
+static void
+appendContents(String *ab)
+{
+	size_t y;
+	char cp[19];
+	for (y = 0; y < CURBUF(editor).rows.len; ++y) {
+		abAppend(ab, cp, (unsigned)snprintf(cp, 19, "\033[%4ld;%4dH\033[K",
+					(size_t)FOCUSPOINT - y, CURBUF(editor).x + 1));
+		abAppend(ab, CURBUF(editor).rows.data[y].data, CURBUF(editor).rows.data[y].len);
+	}
 }
 
 /* append buffer */
