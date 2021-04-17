@@ -1,6 +1,8 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include <util.h>
+
 static void rawRestore(void);
 static void rawOn(void);
 
@@ -11,7 +13,8 @@ rawOn(void)
 {
 	struct termios raw;
 
-	tcgetattr(STDIN_FILENO, &origtermios);
+	if (tcgetattr(STDIN_FILENO, &origtermios) < 0)
+		die("tcgetattr:");
 	raw = origtermios;
 	raw.c_cflag |= (CS8);
 	raw.c_iflag &= (tcflag_t)~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
@@ -19,13 +22,15 @@ rawOn(void)
 	raw.c_oflag &= (tcflag_t)~(OPOST);
 	raw.c_cc[VMIN] = 0;
 	raw.c_cc[VTIME] = 1;
-	tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
+	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) < 0)
+		die("tcsetattr:");
 }
 
 static void
 rawRestore(void)
 {
-	tcsetattr(STDIN_FILENO, TCSAFLUSH, &origtermios);
+	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &origtermios) < 0)
+		die("tcsetattr:");
 }
 
 int
