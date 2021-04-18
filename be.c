@@ -105,6 +105,8 @@ static void usage(void);
 /*********/
 static void echo(const Arg *arg);
 static void cursormove(const Arg *arg);
+static void beginning(const Arg *arg);
+static void ending(const Arg *arg);
 static void quit(const Arg *arg);
 
 /* global variables */
@@ -451,6 +453,18 @@ cursormove(const Arg *arg)
 			minibufferPrint("Already on end of line");
 		break;
 	}
+}
+
+static void
+beginning(const Arg *arg)
+{
+	CURBUF(editor).x = 0;
+}
+
+static void
+ending(const Arg *arg)
+{
+	CURBUF(editor).x = (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1;
 }
 
 static void
