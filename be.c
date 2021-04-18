@@ -192,12 +192,14 @@ appendContents(String *ab)
 {
 	ssize_t y;
 	char cp[19];
-	for (y = MAX(0, (signed)CURBUF(editor).y - FOCUSPOINT);
-			y < MIN(CURBUF(editor).rows.len, terminal.r - 2);
-			++y) {
-		abPrintf(ab, cp, 19, "\033[%4ld;0H\033[K",
-				(ssize_t)FOCUSPOINT + y - (signed)CURBUF(editor).y);
-		abAppend(ab, CURBUF(editor).rows.data[y].data, CURBUF(editor).rows.data[y].len);
+	for (y = 0; y < terminal.r - 1; ++y) {
+		if (y + CURBUF(editor).y - FOCUSPOINT < CURBUF(editor).rows.len) {
+			abPrintf(ab, cp, 19, "\033[%4ld;0H\033[K",
+					y);
+			abAppend(ab,
+					CURBUF(editor).rows.data[y + CURBUF(editor).y - FOCUSPOINT].data,
+					CURBUF(editor).rows.data[y + CURBUF(editor).y - FOCUSPOINT].len);
+		}
 	}
 }
 
