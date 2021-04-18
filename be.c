@@ -17,9 +17,6 @@
    Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
-#define _POSIX_C_SOURCE 200809L
-#define _XOPEN_SOURCE 700
-
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -195,7 +192,7 @@ appendContents(String *ab)
 	ssize_t y;
 	char cp[19];
 	for (y = 0; y < terminal.r - 1; ++y) {
-		if (y + CURBUF(editor).y - FOCUSPOINT < CURBUF(editor).rows.len) {
+		if ((unsigned)(y + CURBUF(editor).y - FOCUSPOINT) < CURBUF(editor).rows.len) {
 			abPrintf(ab, cp, 19, "\033[%4ld;0H\033[K",
 					y);
 			abAppend(ab,
@@ -400,7 +397,7 @@ setup(char *filename)
 	else
 		editBuffer(NULL, filename);
 	editor.curbuf = 0;
-	minibufferPrint("Welcome to be");
+	minibufferPrint("Welcome to be, version " VERSION);
 }
 
 static void
@@ -414,7 +411,7 @@ finish(void)
 static void
 usage(void)
 {
-	die("usage: %s [-h] [FILE]", argv0);
+	die("usage: %s [-hv] [FILE]", argv0);
 }
 
 /* editor functions */
@@ -458,12 +455,14 @@ cursormove(const Arg *arg)
 static void
 beginning(const Arg *arg)
 {
+	(void)arg;
 	CURBUF(editor).x = 0;
 }
 
 static void
 ending(const Arg *arg)
 {
+	(void)arg;
 	CURBUF(editor).x = (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1;
 }
 
@@ -481,6 +480,9 @@ main(int argc, char *argv[])
 	ARGBEGIN {
 	case 'h': default: /* fallthrough */
 		usage();
+		break;
+	case 'v':
+		die("be-" VERSION);
 		break;
 	} ARGEND
 

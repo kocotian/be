@@ -4,7 +4,7 @@ SRC = util.c str.c
 OBJ = ${SRC:.c=.o}
 
 .c.o:
-	${CC} ${CFLAGS} -c -o $@ $^
+	${CC} ${FLAGS} -c -o $@ $^
 
 be: be.c ${OBJ}
-	${CC} ${CFLAGS} -o $@ $^
+	${CC} ${FLAGS} -o $@ $^
