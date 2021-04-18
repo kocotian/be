@@ -117,11 +117,13 @@ static void echo(const Arg *arg);
 static void echoe(const Arg *arg);
 static void normalmode(const Arg *arg);
 static void insertmode(const Arg *arg);
+static void appendmode(const Arg *arg);
 static void cursormove(const Arg *arg);
 static void beginning(const Arg *arg);
 static void ending(const Arg *arg);
 static void insertchar(const Arg *arg);
 static void removechar(const Arg *arg);
+static void openline(const Arg *arg);
 static void quit(const Arg *arg);
 
 /* global variables */
@@ -483,6 +485,17 @@ insertmode(const Arg *arg)
 }
 
 static void
+appendmode(const Arg *arg)
+{
+	Arg a;
+	a.i = 3;
+	cursormove(&a);
+	if (arg->i)
+		ending(NULL);
+	switchmode(ModeEdit);
+}
+
+static void
 cursormove(const Arg *arg)
 {
 	switch (arg->i) {
@@ -552,6 +565,31 @@ removechar(const Arg *arg)
 			CURBUF(editor).rows.data[CURBUF(editor).y].data + CURBUF(editor).x,
 			CURBUF(editor).rows.data[CURBUF(editor).y].len - (unsigned)CURBUF(editor).x + 1);
 	--CURBUF(editor).x;
+}
+
+static void
+openline(const Arg *arg)
+{
+	CURBUF(editor).rows.data =
+		realloc(CURBUF(editor).rows.data,
+				(++CURBUF(editor).rows.len + 1) * sizeof *(CURBUF(editor).rows.data));
+	memmove(CURBUF(editor).rows.data + CURBUF(editor).y + 1,
+			CURBUF(editor).rows.data + CURBUF(editor).y,
+			CURBUF(editor).rows.len - (unsigned)CURBUF(editor).y + 1);
+
+	if (arg->i != 1) ++CURBUF(editor).y;
+	CURBUF(editor).rows.data[CURBUF(editor).y].data =
+		malloc(CURBUF(editor).rows.data[CURBUF(editor).y].len =
+				(CURBUF(editor).rows.data[CURBUF(editor).y - 1].len -
+					(unsigned)CURBUF(editor).x));
+	if (arg->i == 2) {
+		memmove(CURBUF(editor).rows.data[CURBUF(editor).y].data,
+				CURBUF(editor).rows.data[CURBUF(editor).y - 1].data + CURBUF(editor).x,
+				CURBUF(editor).rows.data[CURBUF(editor).y - 1].len - (unsigned)CURBUF(editor).x);
+		CURBUF(editor).rows.data[CURBUF(editor).y - 1].len = (unsigned)CURBUF(editor).x;
+	}
+	CURBUF(editor).x = 0;
+	switchmode(ModeEdit);
 }
 
 static void
