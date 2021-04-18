@@ -19,7 +19,15 @@
 
 #include <ctype.h>
 #include <errno.h>
+#ifdef __linux__
 #include <linux/limits.h>
+#elif __FreeBSD__
+#include <sys/syslimits.h>
+#elif __OpenBSD__
+#include <limits.h>
+#else
+#define UNLIMITED
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
@@ -30,10 +38,13 @@
 #include <util.h>
 
 #define CURBUF(EDITOR) ((EDITOR).bufs.data[(EDITOR).curbuf])
+#ifdef UNLIMITED
+#define PATH_MAX 1024
+#endif
 
 /* types */
 typedef enum Mod {
-	ModNone = 0, ModControl = 0x1f, ModShift = 0xdf,
+	ModNone = 0xff, ModControl = 0x1f, ModShift = 0xdf,
 } Mod;
 
 typedef union Arg {
