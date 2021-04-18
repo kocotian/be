@@ -64,9 +64,9 @@ typedef struct Key {
 
 typedef struct Buffer {
 	Array(String) rows;
-	char path[PATH_MAX], name[PATH_MAX];
+	char path[PATH_MAX], name[NAME_MAX];
 	int anonymous, dirty;
-	int x, y;
+	ssize_t x, y;
 } Buffer;
 
 /* prototypes */
@@ -77,8 +77,11 @@ static void getws(int *r, int *c);
 static void termRefresh(void);
 static void appendRows(String *ab);
 static void appendContents(String *ab);
+static void appendStatus(String *ab);
 /*********/
 static void abAppend(String *ab, const char *str, size_t len);
+#define abPrintf(AB, CP, CPLEN, ...) \
+	(abAppend((AB), (CP), (unsigned)snprintf((CP), (CPLEN), __VA_ARGS__)))
 static void abFree(String *ab);
 /*********/
 static unsigned char editorGetKey(void);
@@ -86,10 +89,14 @@ static void editorParseKey(unsigned char key);
 static void edit(void);
 /*********/
 static void newBuffer(Buffer *buf);
+static void minibufferPrint(const char *s);
+static void minibufferError(const char *s);
 /*********/
 static void setup(void);
 static void finish(void);
 /*********/
+static void echo(const Arg *arg);
+static void cursormove(const Arg *arg);
 static void quit(const Arg *arg);
 
 /* global variables */
@@ -152,8 +159,9 @@ termRefresh(void)
 	abAppend(&ab, "\033[?25l\033[H", 9);
 	appendRows(&ab);
 	appendContents(&ab);
-	abAppend(&ab, cp, (unsigned)snprintf(cp, 19, "\033[%4d;%4dH\033[?25h",
-				FOCUSPOINT, CURBUF(editor).x + 1));
+	appendStatus(&ab);
+	abPrintf(&ab, cp, 19, "\033[%4d;%4ldH\033[?25h",
+			FOCUSPOINT, CURBUF(editor).x + 1);
 
 	if ((unsigned)write(STDOUT_FILENO, ab.data, ab.len) != ab.len)
 		die("write:");
@@ -172,13 +180,37 @@ appendRows(String *ab)
 static void
 appendContents(String *ab)
 {
-	size_t y;
+	ssize_t y;
 	char cp[19];
-	for (y = 0; y < CURBUF(editor).rows.len; ++y) {
-		abAppend(ab, cp, (unsigned)snprintf(cp, 19, "\033[%4ld;%4dH\033[K",
-					(size_t)FOCUSPOINT - y, CURBUF(editor).x + 1));
+	for (y = MAX(0, (signed)CURBUF(editor).y - FOCUSPOINT);
+			y < MIN(CURBUF(editor).rows.len, terminal.r - 2);
+			++y) {
+		abPrintf(ab, cp, 19, "\033[%4ld;0H\033[K",
+				(ssize_t)FOCUSPOINT + y - (signed)CURBUF(editor).y);
 		abAppend(ab, CURBUF(editor).rows.data[y].data, CURBUF(editor).rows.data[y].len);
 	}
+}
+
+static void
+appendStatus(String *ab)
+{
+	char cp[256];
+	ssize_t i;
+	i = -1;
+	abPrintf(ab, cp, 256, "\033[%4d;0H\033[K\033[0;97;100m",
+			(unsigned)(terminal.r - 1));
+	while (++i < terminal.c) {
+		abAppend(ab, " ", 1);
+	}
+	abAppend(ab, "\r", 1);
+	/* status drawing */
+	{
+		abPrintf(ab, cp, 256, "%s L%ld",
+				CURBUF(editor).anonymous ?
+					"*anonymous*" : CURBUF(editor).name,
+				CURBUF(editor).y + 1);
+	}
+	abAppend(ab, "\r\033[0m", 6);
 }
 
 /* append buffer */
@@ -220,7 +252,7 @@ editorParseKey(unsigned char key)
 			(bindings[i].func)(&(bindings[i].arg));
 			return;
 		}
-	/* TODO: information that key is not bound */
+	minibufferError("Key not bound");
 }
 
 static void
@@ -254,6 +286,44 @@ newBuffer(Buffer *buf)
 		pushVector(editor.bufs, init);
 }
 
+static void
+minibufferPrint(const char *s)
+{
+	String ab = { NULL, 0 };
+	char cp[20];
+
+	abPrintf(&ab, cp, 20, "\033[%4d;%4dH\033[0m\033[K",
+			terminal.r, 1);
+
+	abAppend(&ab, s, strlen(s));
+
+	abAppend(&ab, "\033[0m", 4);
+
+	if ((unsigned)write(STDOUT_FILENO, ab.data, ab.len) != ab.len)
+		die("write:");
+
+	abFree(&ab);
+}
+
+static void
+minibufferError(const char *s)
+{
+	String ab = { NULL, 0 };
+	char cp[23];
+
+	abPrintf(&ab, cp, 23, "\033[%4d;%4dH\033[0;31m\033[K",
+			terminal.r, 1);
+
+	abAppend(&ab, s, strlen(s));
+
+	abAppend(&ab, "\033[0m", 4);
+
+	if ((unsigned)write(STDOUT_FILENO, ab.data, ab.len) != ab.len)
+		die("write:");
+
+	abFree(&ab);
+}
+
 /* other */
 static void
 setup(void)
@@ -263,6 +333,7 @@ setup(void)
 	newVector(editor.bufs);
 	newBuffer(NULL);
 	editor.curbuf = 0;
+	minibufferPrint("Welcome to be");
 }
 
 static void
@@ -274,6 +345,43 @@ finish(void)
 }
 
 /* editor functions */
+static void
+echo(const Arg *arg)
+{
+	minibufferPrint(arg->v);
+}
+
+static void
+cursormove(const Arg *arg)
+{
+	switch (arg->i) {
+	case 0: /* left */
+		if (CURBUF(editor).x > 0)
+			--(CURBUF(editor).x);
+		else
+			minibufferPrint("Already on beginning of line");
+		break;
+	case 1: /* down */
+		if (CURBUF(editor).y < (signed)CURBUF(editor).rows.len - 1)
+			++(CURBUF(editor).y);
+		else
+			minibufferPrint("Already on bottom");
+		break;
+	case 2: /* up */
+		if (CURBUF(editor).y > 0)
+			--(CURBUF(editor).y);
+		else
+			minibufferPrint("Already on top");
+		break;
+	case 3: /* up */
+		if (CURBUF(editor).x < (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1)
+			++(CURBUF(editor).x);
+		else
+			minibufferPrint("Already on end of line");
+		break;
+	}
+}
+
 static void
 quit(const Arg *arg)
 {
