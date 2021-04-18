@@ -181,14 +181,15 @@ static void
 termRefresh(void)
 {
 	String ab = { NULL, 0 };
-	char cp[19];
+	char cp[24];
 
 	abAppend(&ab, "\033[?25l\033[H", 9);
 	appendRows(&ab);
 	appendContents(&ab);
 	appendStatus(&ab);
-	abPrintf(&ab, cp, 19, "\033[%4d;%4ldH\033[?25h",
-			FOCUSPOINT, CURBUF(editor).x + 1);
+	abPrintf(&ab, cp, 24, "\033[%4d;%4ldH\033[?25h\033[%c q",
+			FOCUSPOINT, CURBUF(editor).x + 1,
+			CURBUF(editor).mode == ModeEdit ? '5' : '1');
 
 	if ((unsigned)write(STDOUT_FILENO, ab.data, ab.len) != ab.len)
 		die("write:");
