@@ -42,6 +42,8 @@
 #include <util.h>
 
 #define CURBUF(EDITOR) ((EDITOR).bufs.data[(EDITOR).curbuf])
+#define REPLACE (void *)(-1)
+
 #ifdef UNLIMITED
 #define PATH_MAX 1024
 #endif
@@ -50,6 +52,10 @@
 typedef enum Mod {
 	ModNone = 0xff, ModControl = 0x1f, ModShift = 0xdf,
 } Mod;
+
+typedef enum Mode {
+	ModeNormal, ModeEdit
+} Mode;
 
 typedef union Arg {
 	int i;
@@ -71,7 +77,13 @@ typedef struct Buffer {
 	char path[PATH_MAX], name[NAME_MAX];
 	int anonymous, dirty;
 	ssize_t x, y;
+	Mode mode;
 } Buffer;
+
+typedef struct Binding {
+	Key *keys;
+	size_t len;
+} Binding;
 
 /* prototypes */
 static void rawOn(void);
@@ -91,6 +103,7 @@ static void abFree(String *ab);
 static unsigned char editorGetKey(void);
 static void editorParseKey(unsigned char key);
 static void edit(void);
+static void switchmode(Mode mode);
 /*********/
 static void newBuffer(Buffer *buf);
 static void minibufferPrint(const char *s);
@@ -101,9 +114,14 @@ static void finish(void);
 static void usage(void);
 /*********/
 static void echo(const Arg *arg);
+static void echoe(const Arg *arg);
+static void normalmode(const Arg *arg);
+static void insertmode(const Arg *arg);
 static void cursormove(const Arg *arg);
 static void beginning(const Arg *arg);
 static void ending(const Arg *arg);
+static void insertchar(const Arg *arg);
+static void removechar(const Arg *arg);
 static void quit(const Arg *arg);
 
 /* global variables */
@@ -216,10 +234,16 @@ appendStatus(String *ab)
 	abAppend(ab, "\r", 1);
 	/* status drawing */
 	{
-		abPrintf(ab, cp, 256, "%s L%ld",
+		abPrintf(ab, cp, 256, "%c:%c %s L%ld (%s)",
+				CURBUF(editor).anonymous ? 'U' : '-',
+				CURBUF(editor).dirty ? '*' : '-',
 				CURBUF(editor).anonymous ?
 					"*anonymous*" : CURBUF(editor).name,
-				CURBUF(editor).y + 1);
+				CURBUF(editor).y + 1,
+				CURBUF(editor).mode == ModeNormal ?
+					"Normal" : CURBUF(editor).mode == ModeEdit ?
+					"Edit" : "Error"
+		);
 	}
 	abAppend(ab, "\r\033[0m", 6);
 }
@@ -258,12 +282,19 @@ static void
 editorParseKey(unsigned char key)
 {
 	size_t i;
-	for (i = 0; i < LEN(bindings); ++i)
-		if (key == (bindings[i].key & bindings[i].mod)) {
-			(bindings[i].func)(&(bindings[i].arg));
+	Arg arg;
+	for (i = 0; i < bindings[CURBUF(editor).mode].len; ++i)
+		if (key == ((bindings[CURBUF(editor).mode]).keys[i].key
+						& (bindings[CURBUF(editor).mode]).keys[i].mod)
+		|| i == bindings[CURBUF(editor).mode].len - 1) {
+			((bindings[CURBUF(editor).mode]).keys[i].func)
+				(
+					(bindings[CURBUF(editor).mode]).keys[i].arg.v == REPLACE ?
+						arg.c = (char)(key), &arg :
+						&((bindings[CURBUF(editor).mode]).keys[i].arg)
+				);
 			return;
 		}
-	minibufferError("Key not bound");
 }
 
 static void
@@ -273,6 +304,12 @@ edit(void)
 		termRefresh();
 		editorParseKey(editorGetKey());
 	}
+}
+
+static void
+switchmode(Mode mode)
+{
+	CURBUF(editor).mode = mode;
 }
 
 /* buffers */
@@ -293,6 +330,7 @@ newBuffer(Buffer *buf)
 	buf->anonymous = 1;
 	buf->dirty = 0;
 	buf->x = buf->y = 0;
+	buf->mode = ModeNormal;
 
 	if (buf == &init)
 		pushVector(editor.bufs, init);
@@ -319,6 +357,7 @@ editBuffer(Buffer *buf, char *filename)
 			NAME_MAX);
 	buf->anonymous = buf->dirty = 0;
 	buf->x = buf->y = 0;
+	buf->mode = ModeNormal;
 
 	if ((fd = open(filename, O_RDONLY)) < 0)
 		die("open:");
@@ -422,6 +461,27 @@ echo(const Arg *arg)
 }
 
 static void
+echoe(const Arg *arg)
+{
+	minibufferError(arg->v);
+}
+
+static void
+normalmode(const Arg *arg)
+{
+	(void)arg;
+	switchmode(ModeNormal);
+}
+
+static void
+insertmode(const Arg *arg)
+{
+	if (arg->i)
+		beginning(NULL);
+	switchmode(ModeEdit);
+}
+
+static void
 cursormove(const Arg *arg)
 {
 	switch (arg->i) {
@@ -432,15 +492,17 @@ cursormove(const Arg *arg)
 			minibufferPrint("Already on beginning of line");
 		break;
 	case 1: /* down */
-		if (CURBUF(editor).y < (signed)CURBUF(editor).rows.len - 1)
-			++(CURBUF(editor).y);
-		else
+		if (CURBUF(editor).y < (signed)CURBUF(editor).rows.len - 1) {
+			if (CURBUF(editor).x >= (unsigned)CURBUF(editor).rows.data[++(CURBUF(editor).y)].len)
+				CURBUF(editor).x = (unsigned)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1;
+		} else
 			minibufferPrint("Already on bottom");
 		break;
 	case 2: /* up */
-		if (CURBUF(editor).y > 0)
-			--(CURBUF(editor).y);
-		else
+		if (CURBUF(editor).y > 0) {
+			if (CURBUF(editor).x >= (unsigned)CURBUF(editor).rows.data[--(CURBUF(editor).y)].len)
+				CURBUF(editor).x = (unsigned)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1;
+		} else
 			minibufferPrint("Already on top");
 		break;
 	case 3: /* up */
@@ -464,6 +526,31 @@ ending(const Arg *arg)
 {
 	(void)arg;
 	CURBUF(editor).x = (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1;
+}
+
+static void
+insertchar(const Arg *arg)
+{
+	CURBUF(editor).rows.data[CURBUF(editor).y].data =
+		realloc(CURBUF(editor).rows.data[CURBUF(editor).y].data,
+				++CURBUF(editor).rows.data[CURBUF(editor).y].len + 1);
+	memmove(CURBUF(editor).rows.data[CURBUF(editor).y].data + CURBUF(editor).x + 1,
+			CURBUF(editor).rows.data[CURBUF(editor).y].data + CURBUF(editor).x,
+			CURBUF(editor).rows.data[CURBUF(editor).y].len - (unsigned)CURBUF(editor).x);
+
+	CURBUF(editor).rows.data[CURBUF(editor).y].data[CURBUF(editor).x++] = arg->c;
+}
+
+static void
+removechar(const Arg *arg)
+{
+	(void)arg;
+	if (CURBUF(editor).x <= 0) return;
+	--(CURBUF(editor).rows.data[CURBUF(editor).y].len);
+	memmove(CURBUF(editor).rows.data[CURBUF(editor).y].data + CURBUF(editor).x - 1,
+			CURBUF(editor).rows.data[CURBUF(editor).y].data + CURBUF(editor).x,
+			CURBUF(editor).rows.data[CURBUF(editor).y].len - (unsigned)CURBUF(editor).x + 1);
+	--CURBUF(editor).x;
 }
 
 static void
