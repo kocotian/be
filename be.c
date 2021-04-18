@@ -17,8 +17,19 @@
    Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301  USA
 */
 
+#define _POSIX_C_SOURCE 200809L
+#define _XOPEN_SOURCE 700
+
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <termios.h>
+#include <unistd.h>
+
 #ifdef __linux__
 #include <linux/limits.h>
 #elif __FreeBSD__
@@ -28,12 +39,8 @@
 #else
 #define UNLIMITED
 #endif
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/ioctl.h>
-#include <termios.h>
-#include <unistd.h>
 
+#include <arg.h>
 #include <str.h>
 #include <util.h>
 
@@ -92,8 +99,9 @@ static void newBuffer(Buffer *buf);
 static void minibufferPrint(const char *s);
 static void minibufferError(const char *s);
 /*********/
-static void setup(void);
+static void setup(char *filename);
 static void finish(void);
+static void usage(void);
 /*********/
 static void echo(const Arg *arg);
 static void cursormove(const Arg *arg);
@@ -110,6 +118,8 @@ static struct {
 	Array(Buffer) bufs;
 	int curbuf;
 } editor;
+
+char *argv0;
 
 /* terminal */
 static void
@@ -279,8 +289,58 @@ newBuffer(Buffer *buf)
 	newVector(buf->rows);
 	pushVector(buf->rows, ln);
 	*(buf->path) = *(buf->name) = '\0';
-	buf->anonymous = buf->dirty = 1;
+	buf->anonymous = 1;
+	buf->dirty = 0;
 	buf->x = buf->y = 0;
+
+	if (buf == &init)
+		pushVector(editor.bufs, init);
+}
+
+static void
+editBuffer(Buffer *buf, char *filename)
+{
+	Buffer init;
+	int fd;
+	struct stat sb;
+	char *data;
+	String fstr, fline, fpush;
+
+	if (buf == NULL)
+		buf = &init;
+
+	newVector(buf->rows);
+	*(buf->path) = *(buf->name) = '\0';
+	strncpy(buf->path, filename, PATH_MAX);
+	strncpy(buf->name,
+			(strrchr(filename, '/')) == NULL ?
+				filename : (strrchr(filename, '/') + 1),
+			NAME_MAX);
+	buf->anonymous = buf->dirty = 0;
+	buf->x = buf->y = 0;
+
+	if ((fd = open(filename, O_RDONLY)) < 0)
+		die("open:");
+
+	if (fstat(fd, &sb) < 0)
+		die("stat:");
+
+	/* maybe mmap will be better here? */
+	data = malloc(((unsigned)sb.st_size * sizeof *data));
+	if (read(fd, data, (unsigned)sb.st_size) != (unsigned)sb.st_size)
+		die("read:");
+
+	fstr.data = data;
+	fstr.len = (unsigned)sb.st_size;
+
+	while (Strtok(fstr, &fline, '\n') > 0) {
+		fpush.data = strndup(fline.data, (fpush.len = fline.len));
+		pushVector(buf->rows, fpush);
+		fstr.data += fline.len;
+		fstr.len -= fline.len;
+	}
+
+	free(data);
 
 	if (buf == &init)
 		pushVector(editor.bufs, init);
@@ -326,12 +386,15 @@ minibufferError(const char *s)
 
 /* other */
 static void
-setup(void)
+setup(char *filename)
 {
 	rawOn();
 	getws(&(terminal.r), &(terminal.c));
 	newVector(editor.bufs);
-	newBuffer(NULL);
+	if (filename == NULL)
+		newBuffer(NULL);
+	else
+		editBuffer(NULL, filename);
 	editor.curbuf = 0;
 	minibufferPrint("Welcome to be");
 }
@@ -342,6 +405,12 @@ finish(void)
 	rawRestore();
 	termRefresh();
 	exit(0);
+}
+
+static void
+usage(void)
+{
+	die("usage: %s [-h] [FILE]", argv0);
 }
 
 /* editor functions */
@@ -392,7 +461,21 @@ quit(const Arg *arg)
 int
 main(int argc, char *argv[])
 {
-	setup();
+	char *filename;
+	ARGBEGIN {
+	case 'h': default: /* fallthrough */
+		usage();
+		break;
+	} ARGEND
+
+	filename = NULL;
+
+	if (argc > 1)
+		usage();
+	else if (argc == 1)
+		filename = argv[0];
+
+	setup(filename);
 	edit();
 	finish();
 
