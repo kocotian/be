@@ -173,7 +173,7 @@ getws(int *r, int *c)
 	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) < 0)
 		die("ioctl:");
 	if (ws.ws_col < 20 || ws.ws_row < 3)
-		die("screen is too small (min. 20x3)");
+		die(lang[0], 20, 3);
 	*c = ws.ws_col;
 	*r = ws.ws_row;
 }
@@ -439,7 +439,7 @@ setup(char *filename)
 	else
 		editBuffer(NULL, filename);
 	editor.curbuf = 0;
-	minibufferPrint("Welcome to be, version " VERSION);
+	minibufferPrint(lang[1]);
 }
 
 static void
@@ -453,7 +453,7 @@ finish(void)
 static void
 usage(void)
 {
-	die("usage: %s [-hv] [FILE]", argv0);
+	die("%s: %s [-hv] [FILE]", lang[2], argv0);
 }
 
 /* editor functions */
