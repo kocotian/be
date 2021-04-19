@@ -127,7 +127,6 @@ static void openline(const Arg *arg);
 static void quit(const Arg *arg);
 
 /* global variables */
-#include "config.h"
 static struct {
 	struct termios origtermios;
 	int r, c;
@@ -139,6 +138,9 @@ static struct {
 } editor;
 
 char *argv0;
+
+/* config */
+#include "config.h"
 
 /* terminal */
 static void
