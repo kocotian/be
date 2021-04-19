@@ -577,7 +577,7 @@ cursormove(const Arg *arg)
 			minibufferPrint("Already on top");
 		break;
 	case 3: /* right */
-		if (CURBUF(editor).x < (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len)
+		if (CURBUF(editor).x < (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1)
 			++(CURBUF(editor).x);
 		else
 			minibufferPrint("Already on end of line");
@@ -596,7 +596,7 @@ static void
 ending(const Arg *arg)
 {
 	(void)arg;
-	CURBUF(editor).x = (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len;
+	CURBUF(editor).x = (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1;
 }
 
 static void
