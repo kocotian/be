@@ -1,4 +1,7 @@
+/* See COPYRIGHT file for copyright and license details */
+
 static Key
+/* general modes */
 normalbindings[] = {
 	/* modifier     key     function        argument */
 	/* movement */
@@ -14,17 +17,15 @@ normalbindings[] = {
 	{ ModShift,     'a',    appendmode,     {.i = 1} },
 
 	/* advanced movement */
-	{ ModNone,      '^',    beginning,      {0} },
 	{ ModNone,      '0',    beginning,      {0} },
 	{ ModNone,      '$',    ending,         {0} },
-	{ ModNone,      'E',    ending,         {0} },
 
 	{ ModNone,      'o',    openline,       {0} },
 	{ ModNone,      'O',    openline,       {1} },
 	{ ModNone,      '\r',   openline,       {2} },
 
 	/* other */
-	{ ModShift,     'q',    quit,           {0} },
+	{ ModShift,     'z',    buffersubmode,  {0} },
 	{ ModNone,      0,      echoe,          {.v = "Key is not bound"} },
 },
 
@@ -34,6 +35,16 @@ editbindings[] = {
 	{ ModNone,      '\r',   normalmode,     {1} },
 	{ ModNone,      127,    removechar,     {0} },
 	{ ModNone,      0,      insertchar,     {.v = REPLACE} },
+},
+
+/* submodes */
+s_bufferbindings[] = {
+	/* modifier     key     function        argument */
+	{ ModShift,     'z',    bufwriteclose,  {0} },
+	{ ModShift,     'w',    bufwrite,       {0} },
+	{ ModShift,     'c',    bufclose,       {0} },
+	{ ModShift,     'q',    bufkill,        {0} },
+	{ ModNone,      0,      echoe,          {.v = "Key is not bound"} },
 };
 
 #define BIND(KEYS) { (KEYS), LEN((KEYS)) }
@@ -42,4 +53,5 @@ static Binding bindings[] = {
 	/* mode                    keys */
 	[ModeEdit]          = BIND(editbindings),
 	[ModeNormal]        = BIND(normalbindings),
+	[SubModeBuffer]     = BIND(s_bufferbindings),
 };

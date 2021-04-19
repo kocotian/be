@@ -11,4 +11,6 @@ static char
 *lang_err[] = {
 	[0] = "usage",
 	[1] = "screen is too small (min. %dx%d)",
+	[2] = "buffer have unsaved changes",
+	[3] = "cannot write anonymous buffer without filename",
 };

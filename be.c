@@ -54,7 +54,8 @@ typedef enum Mod {
 } Mod;
 
 typedef enum Mode {
-	ModeNormal, ModeEdit
+	ModeNormal, ModeEdit,
+	SubModeBuffer
 } Mode;
 
 typedef union Arg {
@@ -78,6 +79,8 @@ typedef struct Buffer {
 	int anonymous, dirty;
 	ssize_t x, y;
 	Mode mode;
+	Mode submodes[32];
+	size_t submodeslen;
 } Buffer;
 
 typedef struct Binding {
@@ -106,8 +109,10 @@ static void edit(void);
 static void switchmode(Mode mode);
 /*********/
 static void newBuffer(Buffer *buf);
-static void minibufferPrint(const char *s);
-static void minibufferError(const char *s);
+static void freeBuffer(Buffer *buf);
+static int writeBuffer(Buffer *buf, char *filename);
+static int minibufferPrint(const char *s);
+static int minibufferError(const char *s);
 /*********/
 static void setup(char *filename);
 static void finish(void);
@@ -118,13 +123,17 @@ static void echoe(const Arg *arg);
 static void normalmode(const Arg *arg);
 static void insertmode(const Arg *arg);
 static void appendmode(const Arg *arg);
+static void buffersubmode(const Arg *arg);
 static void cursormove(const Arg *arg);
 static void beginning(const Arg *arg);
 static void ending(const Arg *arg);
 static void insertchar(const Arg *arg);
 static void removechar(const Arg *arg);
 static void openline(const Arg *arg);
-static void quit(const Arg *arg);
+static void bufwriteclose(const Arg *arg);
+static void bufwrite(const Arg *arg);
+static void bufclose(const Arg *arg);
+static void bufkill(const Arg *arg);
 
 /* global variables */
 static struct {
@@ -306,7 +315,7 @@ editorParseKey(unsigned char key)
 static void
 edit(void)
 {
-	while (1) {
+	while (editor.bufs.len - 1) {
 		termRefresh();
 		editorParseKey(editorGetKey());
 	}
@@ -336,6 +345,7 @@ newBuffer(Buffer *buf)
 	buf->dirty = 0;
 	buf->x = buf->y = 0;
 	buf->mode = ModeNormal;
+	buf->submodeslen = 0;
 
 	if (buf == &init)
 		pushVector(editor.bufs, init);
@@ -363,6 +373,7 @@ editBuffer(Buffer *buf, char *filename)
 	buf->anonymous = buf->dirty = 0;
 	buf->x = buf->y = 0;
 	buf->mode = ModeNormal;
+	buf->submodeslen = 0;
 
 	if ((fd = open(filename, O_RDONLY)) < 0)
 		die("open:");
@@ -392,6 +403,34 @@ editBuffer(Buffer *buf, char *filename)
 }
 
 static void
+freeBuffer(Buffer *buf)
+{
+	size_t i;
+	for (i = 0; i < buf->rows.len; ++i)
+		free(buf->rows.data[i].data);
+}
+
+static int
+writeBuffer(Buffer *buf, char *filename)
+{
+	int fd;
+	size_t i;
+	if (filename == NULL) {
+		if (buf->anonymous)
+			return minibufferError(lang_err[3]);
+		else
+			filename = buf->path;
+	}
+	if ((fd = open(filename, O_WRONLY | O_CREAT)) < 0)
+		die("open:");
+	for (i = 0; i < buf->rows.len; ++i)
+		write(fd, buf->rows.data[i].data, buf->rows.data[i].len);
+	close(fd);
+	CURBUF(editor).dirty = 0;
+	return 0;
+}
+
+static int
 minibufferPrint(const char *s)
 {
 	String ab = { NULL, 0 };
@@ -408,9 +447,10 @@ minibufferPrint(const char *s)
 		die("write:");
 
 	abFree(&ab);
+	return 0;
 }
 
-static void
+static int
 minibufferError(const char *s)
 {
 	String ab = { NULL, 0 };
@@ -427,20 +467,25 @@ minibufferError(const char *s)
 		die("write:");
 
 	abFree(&ab);
+	return 1;
 }
 
 /* other */
 static void
 setup(char *filename)
 {
+	Buffer b;
 	rawOn();
 	getws(&(terminal.r), &(terminal.c));
 	newVector(editor.bufs);
+	/* pushing fallback buffer used when no buffers left */
+	memset(&b, 0, sizeof b);
+	pushVector(editor.bufs, b);
 	if (filename == NULL)
 		newBuffer(NULL);
 	else
 		editBuffer(NULL, filename);
-	editor.curbuf = 0;
+	editor.curbuf = 1;
 	minibufferPrint(lang_base[2]);
 }
 
@@ -495,6 +540,15 @@ appendmode(const Arg *arg)
 	if (arg->i)
 		ending(NULL);
 	switchmode(ModeEdit);
+}
+
+static void
+buffersubmode(const Arg *arg)
+{
+	(void)arg;
+	switchmode(SubModeBuffer);
+	editorParseKey(editorGetKey());
+	switchmode(ModeNormal);
 }
 
 static void
@@ -595,10 +649,46 @@ openline(const Arg *arg)
 }
 
 static void
-quit(const Arg *arg)
+bufwriteclose(const Arg *arg)
 {
 	(void)arg;
-	finish();
+	if (CURBUF(editor).dirty)
+		writeBuffer(&CURBUF(editor), NULL);
+	freeBuffer(editor.bufs.data + editor.curbuf);
+	memmove(editor.bufs.data + editor.curbuf,
+			editor.bufs.data + editor.curbuf + 1,
+			editor.bufs.len-- - (size_t)(editor.curbuf + 1));
+}
+
+static void
+bufwrite(const Arg *arg)
+{
+	(void)arg;
+	writeBuffer(&CURBUF(editor), NULL);
+}
+
+static void
+bufclose(const Arg *arg)
+{
+	(void)arg;
+	if (CURBUF(editor).dirty) {
+		minibufferError(lang_err[2]);
+		return;
+	}
+	freeBuffer(editor.bufs.data + editor.curbuf);
+	memmove(editor.bufs.data + editor.curbuf,
+			editor.bufs.data + editor.curbuf + 1,
+			editor.bufs.len-- - (size_t)(editor.curbuf + 1));
+}
+
+static void
+bufkill(const Arg *arg)
+{
+	(void)arg;
+	freeBuffer(editor.bufs.data + editor.curbuf);
+	memmove(editor.bufs.data + editor.curbuf,
+			editor.bufs.data + editor.curbuf + 1,
+			editor.bufs.len-- - (size_t)(editor.curbuf + 1));
 }
 
 int
