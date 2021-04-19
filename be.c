@@ -173,7 +173,7 @@ getws(int *r, int *c)
 	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) < 0)
 		die("ioctl:");
 	if (ws.ws_col < 20 || ws.ws_row < 3)
-		die(lang[0], 20, 3);
+		die(lang_err[1], 20, 3);
 	*c = ws.ws_col;
 	*r = ws.ws_row;
 }
@@ -243,9 +243,7 @@ appendStatus(String *ab)
 				CURBUF(editor).anonymous ?
 					"*anonymous*" : CURBUF(editor).name,
 				CURBUF(editor).y + 1,
-				CURBUF(editor).mode == ModeNormal ?
-					"Normal" : CURBUF(editor).mode == ModeEdit ?
-					"Edit" : "Error"
+				lang_modes[CURBUF(editor).mode]
 		);
 	}
 	abAppend(ab, "\r\033[0m", 6);
@@ -320,14 +318,13 @@ static void
 newBuffer(Buffer *buf)
 {
 	Buffer init;
-	String ln = {
-		"", 0
-	};
+	String ln;
 
 	if (buf == NULL)
 		buf = &init;
 
 	newVector(buf->rows);
+	ln.data = malloc(ln.len = 0);
 	pushVector(buf->rows, ln);
 	*(buf->path) = *(buf->name) = '\0';
 	buf->anonymous = 1;
@@ -439,7 +436,7 @@ setup(char *filename)
 	else
 		editBuffer(NULL, filename);
 	editor.curbuf = 0;
-	minibufferPrint(lang[1]);
+	minibufferPrint(lang_base[2]);
 }
 
 static void
@@ -453,7 +450,7 @@ finish(void)
 static void
 usage(void)
 {
-	die("%s: %s [-hv] [FILE]", lang[2], argv0);
+	die("%s: %s [-hLv] [FILE]", lang_err[0], argv0);
 }
 
 /* editor functions */
@@ -519,8 +516,8 @@ cursormove(const Arg *arg)
 		} else
 			minibufferPrint("Already on top");
 		break;
-	case 3: /* up */
-		if (CURBUF(editor).x < (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1)
+	case 3: /* right */
+		if (CURBUF(editor).x < (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len)
 			++(CURBUF(editor).x);
 		else
 			minibufferPrint("Already on end of line");
@@ -539,7 +536,7 @@ static void
 ending(const Arg *arg)
 {
 	(void)arg;
-	CURBUF(editor).x = (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1;
+	CURBUF(editor).x = (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len;
 }
 
 static void
@@ -606,6 +603,9 @@ main(int argc, char *argv[])
 	ARGBEGIN {
 	case 'h': default: /* fallthrough */
 		usage();
+		break;
+	case 'L':
+		die("%s, %s", lang_base[0], lang_base[1]);
 		break;
 	case 'v':
 		die("be-" VERSION);
