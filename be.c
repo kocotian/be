@@ -628,18 +628,17 @@ removechar(const Arg *arg)
 static void
 openline(const Arg *arg)
 {
-	CURBUF(editor).rows.data =
-		realloc(CURBUF(editor).rows.data,
-				(++CURBUF(editor).rows.len + 1) * sizeof *(CURBUF(editor).rows.data));
-	memmove(CURBUF(editor).rows.data + CURBUF(editor).y + 1,
-			CURBUF(editor).rows.data + CURBUF(editor).y,
-			CURBUF(editor).rows.len - (unsigned)CURBUF(editor).y + 1);
-
+	CURBUF(editor).rows.data = realloc(CURBUF(editor).rows.data,
+				++(CURBUF(editor).rows.len) * sizeof *(CURBUF(editor).rows.data));
 	if (arg->i != 1) ++CURBUF(editor).y;
+	memmove(CURBUF(editor).rows.data + CURBUF(editor).y,
+			CURBUF(editor).rows.data + CURBUF(editor).y - 1,
+			(CURBUF(editor).rows.len - (unsigned)(CURBUF(editor).y)) *
+				sizeof *(CURBUF(editor).rows.data));
 	CURBUF(editor).rows.data[CURBUF(editor).y].data =
 		malloc(CURBUF(editor).rows.data[CURBUF(editor).y].len =
-				(unsigned)((signed)CURBUF(editor).rows.data[CURBUF(editor).y - 1].len -
-					CURBUF(editor).x));
+				arg->i == 2 ? CURBUF(editor).rows.data[CURBUF(editor).y - 1].len -
+					(unsigned)CURBUF(editor).x : 0);
 	if (arg->i == 2) {
 		memmove(CURBUF(editor).rows.data[CURBUF(editor).y].data,
 				CURBUF(editor).rows.data[CURBUF(editor).y - 1].data + CURBUF(editor).x,
