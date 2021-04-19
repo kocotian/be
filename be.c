@@ -607,6 +607,7 @@ insertchar(const Arg *arg)
 	memmove(CURBUF(editor).rows.data[CURBUF(editor).y].data + CURBUF(editor).x + 1,
 			CURBUF(editor).rows.data[CURBUF(editor).y].data + CURBUF(editor).x,
 			CURBUF(editor).rows.data[CURBUF(editor).y].len - (unsigned)CURBUF(editor).x);
+	CURBUF(editor).dirty = 1;
 
 	CURBUF(editor).rows.data[CURBUF(editor).y].data[CURBUF(editor).x++] = arg->c;
 }
