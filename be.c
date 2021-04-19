@@ -560,10 +560,10 @@ removechar(const Arg *arg)
 {
 	(void)arg;
 	if (CURBUF(editor).x <= 0) return;
-	--(CURBUF(editor).rows.data[CURBUF(editor).y].len);
 	memmove(CURBUF(editor).rows.data[CURBUF(editor).y].data + CURBUF(editor).x - 1,
 			CURBUF(editor).rows.data[CURBUF(editor).y].data + CURBUF(editor).x,
-			CURBUF(editor).rows.data[CURBUF(editor).y].len - (unsigned)CURBUF(editor).x + 1);
+			CURBUF(editor).rows.data[CURBUF(editor).y].len - (unsigned)CURBUF(editor).x);
+	--(CURBUF(editor).rows.data[CURBUF(editor).y].len);
 	--CURBUF(editor).x;
 }
 
@@ -580,8 +580,8 @@ openline(const Arg *arg)
 	if (arg->i != 1) ++CURBUF(editor).y;
 	CURBUF(editor).rows.data[CURBUF(editor).y].data =
 		malloc(CURBUF(editor).rows.data[CURBUF(editor).y].len =
-				(CURBUF(editor).rows.data[CURBUF(editor).y - 1].len -
-					(unsigned)CURBUF(editor).x));
+				(unsigned)((signed)CURBUF(editor).rows.data[CURBUF(editor).y - 1].len -
+					CURBUF(editor).x));
 	if (arg->i == 2) {
 		memmove(CURBUF(editor).rows.data[CURBUF(editor).y].data,
 				CURBUF(editor).rows.data[CURBUF(editor).y - 1].data + CURBUF(editor).x,
