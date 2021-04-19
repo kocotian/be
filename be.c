@@ -248,7 +248,7 @@ appendStatus(String *ab)
 	abAppend(ab, "\r", 1);
 	/* status drawing */
 	{
-		abPrintf(ab, cp, 256, "%c:%c %s L%ld of %ld C%ld of %ld (%s)",
+		abPrintf(ab, cp, 256, "%c:%c %s L%ld of %ld C%ld of %ld (%s) %ld buffer(s)",
 				CURBUF(editor).anonymous ? 'U' : '-',
 				CURBUF(editor).dirty ? '*' : '-',
 				CURBUF(editor).anonymous ?
@@ -257,7 +257,8 @@ appendStatus(String *ab)
 				CURBUF(editor).rows.len,
 				CURBUF(editor).x + 1,
 				CURBUF(editor).rows.data[CURBUF(editor).y].len,
-				lang_modes[CURBUF(editor).mode]
+				lang_modes[CURBUF(editor).mode],
+				editor.bufs.len - 1
 		);
 	}
 	abAppend(ab, "\r\033[0m", 6);
