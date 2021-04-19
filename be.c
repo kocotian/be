@@ -610,16 +610,16 @@ cursormove(const Arg *arg)
 	switch (arg->i) {
 	case 0: /* left */
 		if (CURBUF.x > 0) --(CURBUF.x);
-		else minibufferPrint(lang_info[InfoAlreadyBeg]); break;
+		else minibufferPrint(lang_info[InfoAlreadyBeg]);; break;
 	case 1: /* down */
 		if (CURBUF.y < (signed)CURBUF.lines.len - 1) ++(CURBUF.y);
-		else minibufferPrint(lang_info[InfoAlreadyBot]); break;
+		else minibufferPrint(lang_info[InfoAlreadyBot]);; break;
 	case 2: /* up */
 		if (CURBUF.y > 0) --(CURBUF.y);
-		else minibufferPrint(lang_info[InfoAlreadyTop]); break;
+		else minibufferPrint(lang_info[InfoAlreadyTop]);; break;
 	case 3: /* right */
 		if (CURBUF.x < (signed)CURBUF.lines.data[CURBUF.y].len) ++(CURBUF.x);
-		else minibufferPrint(lang_info[InfoAlreadyEnd]); break;
+		else minibufferPrint(lang_info[InfoAlreadyEnd]);; break;
 	}
 	if (CURBUF.x >= (signed)CURBUF.lines.data[CURBUF.y].len)
 		CURBUF.x = (signed)CURBUF.lines.data[CURBUF.y].len;
