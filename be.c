@@ -38,6 +38,7 @@
 #endif
 
 #include <arg.h>
+#include <lang.h>
 #include <str.h>
 #include <util.h>
 
@@ -190,7 +191,7 @@ getws(int *r, int *c)
 	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) < 0)
 		die("ioctl:");
 	if (ws.ws_col < 20 || ws.ws_row < 3)
-		die(lang_err[1], 20, 3);
+		die(lang_err[ErrScreenTooSmall], 20, 3);
 	*c = ws.ws_col;
 	*r = ws.ws_row;
 }
@@ -434,7 +435,7 @@ writeBuffer(Buffer *buf, char *filename)
 	size_t i;
 	if (filename == NULL) {
 		if (buf->anonymous)
-			return minibufferError(lang_err[3]);
+			return minibufferError(lang_err[ErrWriteAnon]);
 		else
 			filename = buf->path;
 	}
@@ -521,7 +522,7 @@ setup(char *filename)
 	else
 		editBuffer(NULL, filename);
 	editor.curbuf = 1;
-	minibufferPrint(lang_base[2]);
+	minibufferPrint(lang_base[ErrDirty]);
 }
 
 static void
@@ -535,7 +536,7 @@ finish(void)
 static void
 usage(void)
 {
-	die("%s: %s [-hLv] [FILE]", lang_err[0], argv0);
+	die("%s: %s [-hLv] [FILE]", lang_err[ErrUsage], argv0);
 }
 
 /* editor functions */
@@ -718,7 +719,7 @@ bufclose(const Arg *arg)
 {
 	(void)arg;
 	if (CURBUF(editor).dirty) {
-		minibufferError(lang_err[2]);
+		minibufferError(lang_err[ErrDirty]);
 		return;
 	}
 	freeBuffer(editor.bufs.data + editor.curbuf);
@@ -746,7 +747,7 @@ main(int argc, char *argv[])
 		usage();
 		break;
 	case 'L':
-		die("%s, %s", lang_base[0], lang_base[1]);
+		die("%s, %s", lang_base[LangCode], lang_base[LangName]);
 		break;
 	case 'v':
 		die("be-" VERSION);
