@@ -609,14 +609,14 @@ cursormove(const Arg *arg)
 	case 1: /* down */
 		if (CURBUF(editor).y < (signed)CURBUF(editor).rows.len - 1) {
 			if (CURBUF(editor).x >= (unsigned)CURBUF(editor).rows.data[++(CURBUF(editor).y)].len)
-				CURBUF(editor).x = (unsigned)CURBUF(editor).rows.data[CURBUF(editor).y].len;
+				CURBUF(editor).x = (unsigned)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1;
 		} else
 			minibufferPrint("Already on bottom");
 		break;
 	case 2: /* up */
 		if (CURBUF(editor).y > 0) {
 			if (CURBUF(editor).x >= (unsigned)CURBUF(editor).rows.data[--(CURBUF(editor).y)].len)
-				CURBUF(editor).x = (unsigned)CURBUF(editor).rows.data[CURBUF(editor).y].len;
+				CURBUF(editor).x = (unsigned)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1;
 		} else
 			minibufferPrint("Already on top");
 		break;
