@@ -56,9 +56,9 @@ typedef enum Mod {
 
 typedef enum Mode {
 	ModeNormal, ModeEdit,
+	ModeBuffer,
 	SubModeGlobal,
 	SubModeMovement,
-	SubModeBuffer,
 } Mode;
 
 typedef union Arg {
@@ -129,7 +129,7 @@ static void normalmode(const Arg *arg);
 static void insertmode(const Arg *arg);
 static void appendmode(const Arg *arg);
 static void globalsubmode(const Arg *arg);
-static void buffersubmode(const Arg *arg);
+static void buffermode(const Arg *arg);
 static void cursormove(const Arg *arg);
 static void beginning(const Arg *arg);
 static void ending(const Arg *arg);
@@ -589,10 +589,10 @@ globalsubmode(const Arg *arg)
 }
 
 static void
-buffersubmode(const Arg *arg)
+buffermode(const Arg *arg)
 {
 	(void)arg;
-	switchmode(SubModeBuffer);
+	switchmode(ModeBuffer);
 	editorParseKey(editorGetKey());
 	switchmode(ModeNormal);
 }

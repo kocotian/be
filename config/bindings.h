@@ -26,9 +26,9 @@ normalbindings[] = {
 
 	/* Submodes */
 	{ ModNone,      'g',    globalsubmode,  {0} },
-	{ ModShift,     'z',    buffersubmode,  {0} },
 
 	/* other */
+	{ ModShift,     'z',    buffermode,     {0} },
 	{ ModNone,      0,      echoe,          {.v = "Key is not bound"} },
 },
 
@@ -40,6 +40,15 @@ editbindings[] = {
 	{ ModNone,      0,      insertchar,     {.v = REPLACE} },
 },
 
+bufferbindings[] = {
+	/* modifier     key     function        argument */
+	{ ModShift,     'z',    bufwriteclose,  {0} },
+	{ ModShift,     'w',    bufwrite,       {0} },
+	{ ModShift,     'c',    bufclose,       {0} },
+	{ ModShift,     'q',    bufkill,        {0} },
+	{ ModNone,      0,      echoe,          {.v = "Key is not bound"} },
+},
+
 /* submodes */
 s_globalbindings[] = {
 	/* modifier     key     function        argument */
@@ -47,15 +56,6 @@ s_globalbindings[] = {
 },
 
 s_movementbindings[] = {
-	{ ModNone,      0,      echoe,          {.v = "Key is not bound"} },
-},
-
-s_bufferbindings[] = {
-	/* modifier     key     function        argument */
-	{ ModShift,     'z',    bufwriteclose,  {0} },
-	{ ModShift,     'w',    bufwrite,       {0} },
-	{ ModShift,     'c',    bufclose,       {0} },
-	{ ModShift,     'q',    bufkill,        {0} },
 	{ ModNone,      0,      echoe,          {.v = "Key is not bound"} },
 };
 
@@ -65,7 +65,7 @@ static Binding bindings[] = {
 	/* mode                    keys */
 	[ModeEdit]          = BIND(editbindings),
 	[ModeNormal]        = BIND(normalbindings),
+	[ModeBuffer]        = BIND(bufferbindings),
 	[SubModeGlobal]     = BIND(s_globalbindings),
 	[SubModeMovement]   = BIND(s_movementbindings),
-	[SubModeBuffer]     = BIND(s_bufferbindings),
 };

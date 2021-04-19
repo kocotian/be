@@ -7,9 +7,9 @@ static char
 *lang_modes[] = {
 	[ModeNormal]        = "Normal",
 	[ModeEdit]          = "Edit",
+	[ModeBuffer]        = "Buffer",
 	[SubModeGlobal]     = "Global",
 	[SubModeMovement]   = "Movement",
-	[SubModeBuffer]     = "Buffer",
 },
 *lang_err[] = {
 	[0] = "usage",
