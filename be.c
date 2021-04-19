@@ -109,8 +109,8 @@ static void abFree(String *ab);
 /*********/
 static unsigned char editorGetKey(void);
 static void editorParseKey(unsigned char key);
-static void edit(void);
-static void switchmode(Mode mode);
+static inline void edit(void);
+static inline void switchmode(Mode mode);
 /*********/
 static void newBuffer(Buffer *buf);
 static void freeBuffer(Buffer *buf);
@@ -302,6 +302,7 @@ editorGetKey(void)
 	ssize_t rb;
 	unsigned char c;
 
+	termRefresh();
 	while ((rb = read(STDIN_FILENO, &c, 1)) != 1)
 		if (rb < 0 && errno != EAGAIN)
 			die("read:");
@@ -330,16 +331,13 @@ editorParseKey(unsigned char key)
 		}
 }
 
-static void
+static inline void
 edit(void)
 {
-	while (editor.bufs.len - 1) {
-		termRefresh();
-		editorParseKey(editorGetKey());
-	}
+	while (editor.bufs.len - 1) editorParseKey(editorGetKey());
 }
 
-static void
+static inline void
 switchmode(Mode mode)
 {
 	CURBUF(editor).mode = mode;
