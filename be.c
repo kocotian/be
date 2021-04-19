@@ -89,7 +89,7 @@ typedef struct Buffer {
 	Array(Line) lines;
 	char path[PATH_MAX], name[NAME_MAX];
 	int anonymous, dirty;
-	ssize_t x, y;
+	ssize_t x, y, xoff;
 	Mode mode;
 	Mode submodes[SUBMODES_MAX];
 	size_t submodeslen;
@@ -216,12 +216,17 @@ termRefresh(void)
 	String ab = { NULL, 0 };
 	char cp[24];
 
+	if ((signed)CURBUF.x + (signed)CURBUF.xoff > (signed)(CURWIN.c - 1))
+		CURBUF.xoff = (CURBUF.x + 1) - CURWIN.c;
+	else if ((signed)CURBUF.xoff > (signed)CURBUF.x)
+		CURBUF.xoff = (CURBUF.x);
+
 	abAppend(&ab, "\033[?25l\033[H", 9);
 	appendRows(&ab);
 	appendContents(&ab);
 	appendStatus(&ab);
 	abPrintf(&ab, cp, 24, "\033[%4d;%4ldH\033[?25h\033[%c q",
-			FOCUSPOINT, CURBUF.x + 1,
+			FOCUSPOINT, (CURBUF.x - CURBUF.xoff) + 1,
 			CURBUF.mode == ModeEdit ? '5' : '1');
 
 	if ((unsigned)write(STDOUT_FILENO, ab.data, ab.len) != ab.len)
@@ -245,11 +250,11 @@ appendContents(String *ab)
 	char cp[19];
 	for (y = 0; y < CURWIN.r; ++y) {
 		if ((unsigned)(y + CURBUF.y - FOCUSPOINT) < CURBUF.lines.len) {
-			abPrintf(ab, cp, 19, "\033[%4ld;0H\033[K",
-					y);
+			abPrintf(ab, cp, 19, "\033[%4ld;0H\033[K", y);
 			abAppend(ab,
-					CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].data,
-					CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].len);
+					(CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].data) + CURBUF.xoff,
+					UMIN(CURWIN.c - 1, CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].len -
+						(unsigned)CURBUF.xoff));
 		}
 	}
 }
@@ -365,7 +370,7 @@ createBuffer(void)
 	*b.path = *b.name = '\0';
 	b.anonymous = 1;
 	b.dirty = 0;
-	b.x = b.y = 0;
+	b.x = b.y = b.xoff = 0;
 	b.mode = ModeNormal;
 	b.submodeslen = 0;
 	return b;
