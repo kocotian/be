@@ -42,7 +42,10 @@
 #include <str.h>
 #include <util.h>
 
-#define CURBUF(EDITOR) ((EDITOR).bufs.data[(EDITOR).curbuf])
+#define CURBUF (be.buffers.data[be.windows.data[be.focusedwin].buffer])
+#define CURBUFINDEX (be.windows.data[be.focusedwin].buffer)
+#define CURWIN (be.windows.data[be.focusedwin])
+#define CURWININDEX (be.focusedwin)
 #define REPLACE (void *)(-1)
 #define SUBMODES_MAX 32
 
@@ -86,6 +89,11 @@ typedef struct Buffer {
 	Mode submodes[SUBMODES_MAX];
 	size_t submodeslen;
 } Buffer;
+
+typedef struct Window {
+	int buffer;
+	int r, c, x, y;
+} Window;
 
 typedef struct Binding {
 	Key *keys;
@@ -145,13 +153,11 @@ static void bufkill(const Arg *arg);
 /* global variables */
 static struct {
 	struct termios origtermios;
+	Array(Buffer) buffers;
+	Array(Window) windows;
+	int focusedwin;
 	int r, c;
-} terminal;
-
-static struct {
-	Array(Buffer) bufs;
-	int curbuf;
-} editor;
+} be;
 
 char *argv0;
 
@@ -164,9 +170,9 @@ rawOn(void)
 {
 	struct termios raw;
 
-	if (tcgetattr(STDIN_FILENO, &(terminal.origtermios)) < 0)
+	if (tcgetattr(STDIN_FILENO, &(be.origtermios)) < 0)
 		die("tcgetattr:");
-	raw = (terminal.origtermios);
+	raw = (be.origtermios);
 	raw.c_cflag |= (CS8);
 	raw.c_iflag &= (tcflag_t)~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
 	raw.c_lflag &= (tcflag_t)~(ECHO | ICANON | IEXTEN | ISIG);
@@ -180,7 +186,7 @@ rawOn(void)
 static void
 rawRestore(void)
 {
-	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &(terminal.origtermios)) < 0)
+	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &(be.origtermios)) < 0)
 		die("tcsetattr:");
 }
 
@@ -208,8 +214,8 @@ termRefresh(void)
 	appendContents(&ab);
 	appendStatus(&ab);
 	abPrintf(&ab, cp, 24, "\033[%4d;%4ldH\033[?25h\033[%c q",
-			FOCUSPOINT, CURBUF(editor).x + 1,
-			CURBUF(editor).mode == ModeEdit ? '5' : '1');
+			FOCUSPOINT, CURBUF.x + 1,
+			CURBUF.mode == ModeEdit ? '5' : '1');
 
 	if ((unsigned)write(STDOUT_FILENO, ab.data, ab.len) != ab.len)
 		die("write:");
@@ -221,8 +227,8 @@ static void
 appendRows(String *ab)
 {
 	size_t y;
-	for (y = 0; y < (unsigned)(terminal.r - 2); ++y)
-		abAppend(ab, "\033[K~\r\n", (y < (unsigned)(terminal.r - 3)) ? 6 : 4);
+	for (y = 0; y < (unsigned)(CURWIN.r - 1); ++y)
+		abAppend(ab, "\033[K~\r\n", (y < (unsigned)(CURWIN.r - 1)) ? 6 : 4);
 }
 
 static void
@@ -230,13 +236,13 @@ appendContents(String *ab)
 {
 	ssize_t y;
 	char cp[19];
-	for (y = 0; y < terminal.r - 1; ++y) {
-		if ((unsigned)(y + CURBUF(editor).y - FOCUSPOINT) < CURBUF(editor).rows.len) {
+	for (y = 0; y < CURWIN.r; ++y) {
+		if ((unsigned)(y + CURBUF.y - FOCUSPOINT) < CURBUF.rows.len) {
 			abPrintf(ab, cp, 19, "\033[%4ld;0H\033[K",
 					y);
 			abAppend(ab,
-					CURBUF(editor).rows.data[y + CURBUF(editor).y - FOCUSPOINT].data,
-					CURBUF(editor).rows.data[y + CURBUF(editor).y - FOCUSPOINT].len);
+					CURBUF.rows.data[y + CURBUF.y - FOCUSPOINT].data,
+					CURBUF.rows.data[y + CURBUF.y - FOCUSPOINT].len);
 		}
 	}
 }
@@ -248,31 +254,31 @@ appendStatus(String *ab)
 	ssize_t i;
 	i = -1;
 	abPrintf(ab, cp, 256, "\033[%4d;0H\033[K\033[0;97;100m",
-			(unsigned)(terminal.r - 1));
-	while (++i < terminal.c) {
+			(unsigned)(CURWIN.r));
+	while (++i < CURWIN.c) {
 		abAppend(ab, " ", 1);
 	}
 	abAppend(ab, "\r", 1);
 	/* status drawing */
 	{
 		abPrintf(ab, cp, 256, "%c:%c %s L%ld of %ld C%ld of %ld (%s",
-				CURBUF(editor).anonymous ? 'U' : '-',
-				CURBUF(editor).dirty ? '*' : '-',
-				CURBUF(editor).anonymous ?
-					"*anonymous*" : CURBUF(editor).name,
-				CURBUF(editor).y + 1,
-				CURBUF(editor).rows.len,
-				CURBUF(editor).x + 1,
-				CURBUF(editor).rows.data[CURBUF(editor).y].len,
-				lang_modes[CURBUF(editor).mode]
+				CURBUF.anonymous ? 'U' : '-',
+				CURBUF.dirty ? '*' : '-',
+				CURBUF.anonymous ?
+					"*anonymous*" : CURBUF.name,
+				CURBUF.y + 1,
+				CURBUF.rows.len,
+				CURBUF.x + 1,
+				CURBUF.rows.data[CURBUF.y].len,
+				lang_modes[CURBUF.mode]
 		);
-		for (i = 0; i < (signed)CURBUF(editor).submodeslen; ++i) {
+		for (i = 0; i < (signed)CURBUF.submodeslen; ++i) {
 			abPrintf(ab, cp, 256, "/%s",
-					lang_modes[CURBUF(editor).submodes[i]]
+					lang_modes[CURBUF.submodes[i]]
 			);
 		}
 		abPrintf(ab, cp, 256, ") %ld buffer(s)",
-				editor.bufs.len - 1
+				be.buffers.len - 1
 		);
 	}
 	abAppend(ab, "\r\033[0m", 6);
@@ -315,8 +321,8 @@ editorParseKey(unsigned char key)
 	Binding *binds;
 	size_t i;
 	Arg arg;
-	binds = &bindings[CURBUF(editor).submodeslen ?
-		CURBUF(editor).submodes[CURBUF(editor).submodeslen - 1] : CURBUF(editor).mode];
+	binds = &bindings[CURBUF.submodeslen ?
+		CURBUF.submodes[CURBUF.submodeslen - 1] : CURBUF.mode];
 	for (i = 0; i < binds->len; ++i)
 		if (key == (binds->keys[i].key
 						& binds->keys[i].mod)
@@ -334,13 +340,13 @@ editorParseKey(unsigned char key)
 static inline void
 edit(void)
 {
-	while (editor.bufs.len - 1) editorParseKey(editorGetKey());
+	while (be.buffers.len - 1) editorParseKey(editorGetKey());
 }
 
 static inline void
 switchmode(Mode mode)
 {
-	CURBUF(editor).mode = mode;
+	CURBUF.mode = mode;
 }
 
 /* buffers */
@@ -364,7 +370,7 @@ newBuffer(Buffer *buf)
 	buf->submodeslen = 0;
 
 	if (buf == &init)
-		pushVector(editor.bufs, init);
+		pushVector(be.buffers, init);
 }
 
 static void
@@ -415,7 +421,7 @@ editBuffer(Buffer *buf, char *filename)
 	free(data);
 
 	if (buf == &init)
-		pushVector(editor.bufs, init);
+		pushVector(be.buffers, init);
 }
 
 static void
@@ -442,7 +448,7 @@ writeBuffer(Buffer *buf, char *filename)
 	for (i = 0; i < buf->rows.len; ++i)
 		write(fd, buf->rows.data[i].data, buf->rows.data[i].len);
 	close(fd);
-	CURBUF(editor).dirty = 0;
+	CURBUF.dirty = 0;
 	return 0;
 }
 
@@ -453,7 +459,7 @@ minibufferPrint(const char *s)
 	char cp[20];
 
 	abPrintf(&ab, cp, 20, "\033[%4d;%4dH\033[0m\033[K",
-			terminal.r, 1);
+			be.r, 1);
 
 	abAppend(&ab, s, strlen(s));
 
@@ -473,7 +479,7 @@ minibufferError(const char *s)
 	char cp[23];
 
 	abPrintf(&ab, cp, 23, "\033[%4d;%4dH\033[0;31m\033[K",
-			terminal.r, 1);
+			be.r, 1);
 
 	abAppend(&ab, s, strlen(s));
 
@@ -509,17 +515,26 @@ static void
 setup(char *filename)
 {
 	Buffer b;
+	Window w;
 	rawOn();
-	getws(&(terminal.r), &(terminal.c));
-	newVector(editor.bufs);
+	getws(&(be.r), &(be.c));
+
+	newVector(be.buffers);
 	/* pushing fallback buffer used when no buffers left */
 	memset(&b, 0, sizeof b);
-	pushVector(editor.bufs, b);
+	pushVector(be.buffers, b);
+
+	newVector(be.windows);
+	w.r = be.r - 1; w.c = be.c;
+	w.x = w.y = 0;
+	w.buffer = 1;
+	pushVector(be.windows, w);
+	be.focusedwin = 0;
+
 	if (filename == NULL)
 		newBuffer(NULL);
 	else
 		editBuffer(NULL, filename);
-	editor.curbuf = 1;
 	minibufferPrint(lang_base[ErrDirty]);
 }
 
@@ -580,11 +595,11 @@ static void
 globalsubmode(const Arg *arg)
 {
 	(void)arg;
-	submodePush(&CURBUF(editor), SubModeGlobal);
-	submodePush(&CURBUF(editor), SubModeMovement);
+	submodePush(&CURBUF, SubModeGlobal);
+	submodePush(&CURBUF, SubModeMovement);
 	editorParseKey(editorGetKey());
-	submodePop(&CURBUF(editor)); /* SubModeMovement */
-	submodePop(&CURBUF(editor)); /* SubModeGlobal */
+	submodePop(&CURBUF); /* SubModeMovement */
+	submodePop(&CURBUF); /* SubModeGlobal */
 }
 
 static void
@@ -601,28 +616,28 @@ cursormove(const Arg *arg)
 {
 	switch (arg->i) {
 	case 0: /* left */
-		if (CURBUF(editor).x > 0)
-			--(CURBUF(editor).x);
+		if (CURBUF.x > 0)
+			--(CURBUF.x);
 		else
 			minibufferPrint(lang_info[InfoAlreadyBeg]);
 		break;
 	case 1: /* down */
-		if (CURBUF(editor).y < (signed)CURBUF(editor).rows.len - 1) {
-			if (CURBUF(editor).x >= (unsigned)CURBUF(editor).rows.data[++(CURBUF(editor).y)].len)
-				CURBUF(editor).x = (unsigned)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1;
+		if (CURBUF.y < (signed)CURBUF.rows.len - 1) {
+			if (CURBUF.x >= (unsigned)CURBUF.rows.data[++(CURBUF.y)].len)
+				CURBUF.x = (unsigned)CURBUF.rows.data[CURBUF.y].len - 1;
 		} else
 			minibufferPrint(lang_info[InfoAlreadyBot]);
 		break;
 	case 2: /* up */
-		if (CURBUF(editor).y > 0) {
-			if (CURBUF(editor).x >= (unsigned)CURBUF(editor).rows.data[--(CURBUF(editor).y)].len)
-				CURBUF(editor).x = (unsigned)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1;
+		if (CURBUF.y > 0) {
+			if (CURBUF.x >= (unsigned)CURBUF.rows.data[--(CURBUF.y)].len)
+				CURBUF.x = (unsigned)CURBUF.rows.data[CURBUF.y].len - 1;
 		} else
 			minibufferPrint(lang_info[InfoAlreadyTop]);
 		break;
 	case 3: /* right */
-		if (CURBUF(editor).x < (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1)
-			++(CURBUF(editor).x);
+		if (CURBUF.x < (signed)CURBUF.rows.data[CURBUF.y].len - 1)
+			++(CURBUF.x);
 		else
 			minibufferPrint(lang_info[InfoAlreadyEnd]);
 		break;
@@ -633,63 +648,63 @@ static void
 beginning(const Arg *arg)
 {
 	(void)arg;
-	CURBUF(editor).x = 0;
+	CURBUF.x = 0;
 }
 
 static void
 ending(const Arg *arg)
 {
 	(void)arg;
-	CURBUF(editor).x = (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1;
+	CURBUF.x = (signed)CURBUF.rows.data[CURBUF.y].len - 1;
 }
 
 static void
 insertchar(const Arg *arg)
 {
-	CURBUF(editor).rows.data[CURBUF(editor).y].data =
-		realloc(CURBUF(editor).rows.data[CURBUF(editor).y].data,
-				++CURBUF(editor).rows.data[CURBUF(editor).y].len + 1);
-	memmove(CURBUF(editor).rows.data[CURBUF(editor).y].data + CURBUF(editor).x + 1,
-			CURBUF(editor).rows.data[CURBUF(editor).y].data + CURBUF(editor).x,
-			CURBUF(editor).rows.data[CURBUF(editor).y].len - (unsigned)CURBUF(editor).x);
-	CURBUF(editor).dirty = 1;
+	CURBUF.rows.data[CURBUF.y].data =
+		realloc(CURBUF.rows.data[CURBUF.y].data,
+				++CURBUF.rows.data[CURBUF.y].len + 1);
+	memmove(CURBUF.rows.data[CURBUF.y].data + CURBUF.x + 1,
+			CURBUF.rows.data[CURBUF.y].data + CURBUF.x,
+			CURBUF.rows.data[CURBUF.y].len - (unsigned)CURBUF.x);
+	CURBUF.dirty = 1;
 
-	CURBUF(editor).rows.data[CURBUF(editor).y].data[CURBUF(editor).x++] = arg->c;
+	CURBUF.rows.data[CURBUF.y].data[CURBUF.x++] = arg->c;
 }
 
 static void
 removechar(const Arg *arg)
 {
 	(void)arg;
-	if (CURBUF(editor).x <= 0) return;
-	memmove(CURBUF(editor).rows.data[CURBUF(editor).y].data + CURBUF(editor).x - 1,
-			CURBUF(editor).rows.data[CURBUF(editor).y].data + CURBUF(editor).x,
-			CURBUF(editor).rows.data[CURBUF(editor).y].len - (unsigned)CURBUF(editor).x);
-	--(CURBUF(editor).rows.data[CURBUF(editor).y].len);
-	--CURBUF(editor).x;
+	if (CURBUF.x <= 0) return;
+	memmove(CURBUF.rows.data[CURBUF.y].data + CURBUF.x - 1,
+			CURBUF.rows.data[CURBUF.y].data + CURBUF.x,
+			CURBUF.rows.data[CURBUF.y].len - (unsigned)CURBUF.x);
+	--(CURBUF.rows.data[CURBUF.y].len);
+	--CURBUF.x;
 }
 
 static void
 openline(const Arg *arg)
 {
-	CURBUF(editor).rows.data = realloc(CURBUF(editor).rows.data,
-				++(CURBUF(editor).rows.len) * sizeof *(CURBUF(editor).rows.data));
-	if (arg->i != 1) ++CURBUF(editor).y;
-	memmove(CURBUF(editor).rows.data + CURBUF(editor).y,
-			CURBUF(editor).rows.data + CURBUF(editor).y - 1,
-			(CURBUF(editor).rows.len - (unsigned)(CURBUF(editor).y)) *
-				sizeof *(CURBUF(editor).rows.data));
-	CURBUF(editor).rows.data[CURBUF(editor).y].data =
-		malloc(CURBUF(editor).rows.data[CURBUF(editor).y].len =
-				arg->i == 2 ? CURBUF(editor).rows.data[CURBUF(editor).y - 1].len -
-					(unsigned)CURBUF(editor).x : 0);
+	CURBUF.rows.data = realloc(CURBUF.rows.data,
+				++(CURBUF.rows.len) * sizeof *(CURBUF.rows.data));
+	if (arg->i != 1) ++CURBUF.y;
+	memmove(CURBUF.rows.data + CURBUF.y,
+			CURBUF.rows.data + CURBUF.y - 1,
+			(CURBUF.rows.len - (unsigned)(CURBUF.y)) *
+				sizeof *(CURBUF.rows.data));
+	CURBUF.rows.data[CURBUF.y].data =
+		malloc(CURBUF.rows.data[CURBUF.y].len =
+				arg->i == 2 ? CURBUF.rows.data[CURBUF.y - 1].len -
+					(unsigned)CURBUF.x : 0);
 	if (arg->i == 2) {
-		memmove(CURBUF(editor).rows.data[CURBUF(editor).y].data,
-				CURBUF(editor).rows.data[CURBUF(editor).y - 1].data + CURBUF(editor).x,
-				CURBUF(editor).rows.data[CURBUF(editor).y - 1].len - (unsigned)CURBUF(editor).x);
-		CURBUF(editor).rows.data[CURBUF(editor).y - 1].len = (unsigned)CURBUF(editor).x;
+		memmove(CURBUF.rows.data[CURBUF.y].data,
+				CURBUF.rows.data[CURBUF.y - 1].data + CURBUF.x,
+				CURBUF.rows.data[CURBUF.y - 1].len - (unsigned)CURBUF.x);
+		CURBUF.rows.data[CURBUF.y - 1].len = (unsigned)CURBUF.x;
 	}
-	CURBUF(editor).x = 0;
+	CURBUF.x = 0;
 	switchmode(ModeEdit);
 }
 
@@ -697,43 +712,43 @@ static void
 bufwriteclose(const Arg *arg)
 {
 	(void)arg;
-	if (CURBUF(editor).dirty)
-		writeBuffer(&CURBUF(editor), NULL);
-	freeBuffer(editor.bufs.data + editor.curbuf);
-	memmove(editor.bufs.data + editor.curbuf,
-			editor.bufs.data + editor.curbuf + 1,
-			editor.bufs.len-- - (size_t)(editor.curbuf + 1));
+	if (CURBUF.dirty)
+		writeBuffer(&CURBUF, NULL);
+	freeBuffer(be.buffers.data + CURBUFINDEX);
+	memmove(be.buffers.data + CURBUFINDEX,
+			be.buffers.data + CURBUFINDEX + 1,
+			be.buffers.len-- - (size_t)(CURBUFINDEX + 1));
 }
 
 static void
 bufwrite(const Arg *arg)
 {
 	(void)arg;
-	writeBuffer(&CURBUF(editor), NULL);
+	writeBuffer(&CURBUF, NULL);
 }
 
 static void
 bufclose(const Arg *arg)
 {
 	(void)arg;
-	if (CURBUF(editor).dirty) {
+	if (CURBUF.dirty) {
 		minibufferError(lang_err[ErrDirty]);
 		return;
 	}
-	freeBuffer(editor.bufs.data + editor.curbuf);
-	memmove(editor.bufs.data + editor.curbuf,
-			editor.bufs.data + editor.curbuf + 1,
-			editor.bufs.len-- - (size_t)(editor.curbuf + 1));
+	freeBuffer(be.buffers.data + CURBUFINDEX);
+	memmove(be.buffers.data + CURBUFINDEX,
+			be.buffers.data + CURBUFINDEX + 1,
+			be.buffers.len-- - (size_t)(CURBUFINDEX + 1));
 }
 
 static void
 bufkill(const Arg *arg)
 {
 	(void)arg;
-	freeBuffer(editor.bufs.data + editor.curbuf);
-	memmove(editor.bufs.data + editor.curbuf,
-			editor.bufs.data + editor.curbuf + 1,
-			editor.bufs.len-- - (size_t)(editor.curbuf + 1));
+	freeBuffer(be.buffers.data + CURBUFINDEX);
+	memmove(be.buffers.data + CURBUFINDEX,
+			be.buffers.data + CURBUFINDEX + 1,
+			be.buffers.len-- - (size_t)(CURBUFINDEX + 1));
 }
 
 int
