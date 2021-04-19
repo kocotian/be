@@ -43,6 +43,7 @@
 
 #define CURBUF(EDITOR) ((EDITOR).bufs.data[(EDITOR).curbuf])
 #define REPLACE (void *)(-1)
+#define SUBMODES_MAX 32
 
 #ifdef UNLIMITED
 #define PATH_MAX 1024
@@ -55,7 +56,9 @@ typedef enum Mod {
 
 typedef enum Mode {
 	ModeNormal, ModeEdit,
-	SubModeBuffer
+	SubModeGlobal,
+	SubModeMovement,
+	SubModeBuffer,
 } Mode;
 
 typedef union Arg {
@@ -79,7 +82,7 @@ typedef struct Buffer {
 	int anonymous, dirty;
 	ssize_t x, y;
 	Mode mode;
-	Mode submodes[32];
+	Mode submodes[SUBMODES_MAX];
 	size_t submodeslen;
 } Buffer;
 
@@ -113,6 +116,8 @@ static void freeBuffer(Buffer *buf);
 static int writeBuffer(Buffer *buf, char *filename);
 static int minibufferPrint(const char *s);
 static int minibufferError(const char *s);
+static inline int submodePush(Buffer *b, Mode m);
+static inline int submodePop(Buffer *b);
 /*********/
 static void setup(char *filename);
 static void finish(void);
@@ -123,6 +128,7 @@ static void echoe(const Arg *arg);
 static void normalmode(const Arg *arg);
 static void insertmode(const Arg *arg);
 static void appendmode(const Arg *arg);
+static void globalsubmode(const Arg *arg);
 static void buffersubmode(const Arg *arg);
 static void cursormove(const Arg *arg);
 static void beginning(const Arg *arg);
@@ -248,7 +254,7 @@ appendStatus(String *ab)
 	abAppend(ab, "\r", 1);
 	/* status drawing */
 	{
-		abPrintf(ab, cp, 256, "%c:%c %s L%ld of %ld C%ld of %ld (%s) %ld buffer(s)",
+		abPrintf(ab, cp, 256, "%c:%c %s L%ld of %ld C%ld of %ld (%s",
 				CURBUF(editor).anonymous ? 'U' : '-',
 				CURBUF(editor).dirty ? '*' : '-',
 				CURBUF(editor).anonymous ?
@@ -257,7 +263,14 @@ appendStatus(String *ab)
 				CURBUF(editor).rows.len,
 				CURBUF(editor).x + 1,
 				CURBUF(editor).rows.data[CURBUF(editor).y].len,
-				lang_modes[CURBUF(editor).mode],
+				lang_modes[CURBUF(editor).mode]
+		);
+		for (i = 0; i < (signed)CURBUF(editor).submodeslen; ++i) {
+			abPrintf(ab, cp, 256, "/%s",
+					lang_modes[CURBUF(editor).submodes[i]]
+			);
+		}
+		abPrintf(ab, cp, 256, ") %ld buffer(s)",
 				editor.bufs.len - 1
 		);
 	}
@@ -297,17 +310,20 @@ editorGetKey(void)
 static void
 editorParseKey(unsigned char key)
 {
+	Binding *binds;
 	size_t i;
 	Arg arg;
-	for (i = 0; i < bindings[CURBUF(editor).mode].len; ++i)
-		if (key == ((bindings[CURBUF(editor).mode]).keys[i].key
-						& (bindings[CURBUF(editor).mode]).keys[i].mod)
-		|| i == bindings[CURBUF(editor).mode].len - 1) {
-			((bindings[CURBUF(editor).mode]).keys[i].func)
+	binds = &bindings[CURBUF(editor).submodeslen ?
+		CURBUF(editor).submodes[CURBUF(editor).submodeslen - 1] : CURBUF(editor).mode];
+	for (i = 0; i < binds->len; ++i)
+		if (key == (binds->keys[i].key
+						& binds->keys[i].mod)
+		|| i == binds->len - 1) {
+			(binds->keys[i].func)
 				(
-					(bindings[CURBUF(editor).mode]).keys[i].arg.v == REPLACE ?
+					binds->keys[i].arg.v == REPLACE ?
 						arg.c = (char)(key), &arg :
-						&((bindings[CURBUF(editor).mode]).keys[i].arg)
+						&(binds->keys[i].arg)
 				);
 			return;
 		}
@@ -471,6 +487,24 @@ minibufferError(const char *s)
 	return 1;
 }
 
+static inline int
+submodePush(Buffer *b, Mode m)
+{
+	if (b->submodeslen >= SUBMODES_MAX)
+		return 1;
+	b->submodes[(b->submodeslen)++] = m;
+	return 0;
+}
+
+static inline int
+submodePop(Buffer *b)
+{
+	if (!b->submodeslen)
+		return 1;
+	--(b->submodeslen);
+	return 0;
+}
+
 /* other */
 static void
 setup(char *filename)
@@ -541,6 +575,17 @@ appendmode(const Arg *arg)
 	if (arg->i)
 		ending(NULL);
 	switchmode(ModeEdit);
+}
+
+static void
+globalsubmode(const Arg *arg)
+{
+	(void)arg;
+	submodePush(&CURBUF(editor), SubModeGlobal);
+	submodePush(&CURBUF(editor), SubModeMovement);
+	editorParseKey(editorGetKey());
+	submodePop(&CURBUF(editor)); /* SubModeMovement */
+	submodePop(&CURBUF(editor)); /* SubModeGlobal */
 }
 
 static void

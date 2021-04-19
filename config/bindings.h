@@ -24,8 +24,11 @@ normalbindings[] = {
 	{ ModNone,      'O',    openline,       {1} },
 	{ ModNone,      '\r',   openline,       {2} },
 
-	/* other */
+	/* Submodes */
+	{ ModNone,      'g',    globalsubmode,  {0} },
 	{ ModShift,     'z',    buffersubmode,  {0} },
+
+	/* other */
 	{ ModNone,      0,      echoe,          {.v = "Key is not bound"} },
 },
 
@@ -38,6 +41,15 @@ editbindings[] = {
 },
 
 /* submodes */
+s_globalbindings[] = {
+	/* modifier     key     function        argument */
+	{ ModNone,      0,      echoe,          {.v = "Key is not bound"} },
+},
+
+s_movementbindings[] = {
+	{ ModNone,      0,      echoe,          {.v = "Key is not bound"} },
+},
+
 s_bufferbindings[] = {
 	/* modifier     key     function        argument */
 	{ ModShift,     'z',    bufwriteclose,  {0} },
@@ -53,5 +65,7 @@ static Binding bindings[] = {
 	/* mode                    keys */
 	[ModeEdit]          = BIND(editbindings),
 	[ModeNormal]        = BIND(normalbindings),
+	[SubModeGlobal]     = BIND(s_globalbindings),
+	[SubModeMovement]   = BIND(s_movementbindings),
 	[SubModeBuffer]     = BIND(s_bufferbindings),
 };

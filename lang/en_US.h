@@ -5,8 +5,11 @@ static char
 	[2] = "welcome to be, version " VERSION,
 },
 *lang_modes[] = {
-	[ModeNormal]    = "Normal",
-	[ModeEdit]      = "Edit",
+	[ModeNormal]        = "Normal",
+	[ModeEdit]          = "Edit",
+	[SubModeGlobal]     = "Global",
+	[SubModeMovement]   = "Movement",
+	[SubModeBuffer]     = "Buffer",
 },
 *lang_err[] = {
 	[0] = "usage",
