@@ -6,6 +6,10 @@ typedef enum {
 } Lang;
 
 typedef enum {
+	InfoAlreadyBeg, InfoAlreadyBot, InfoAlreadyTop, InfoAlreadyEnd,
+} Info;
+
+typedef enum {
 	ErrUsage = 0, ErrScreenTooSmall,
 	ErrDirty, ErrWriteAnon,
 } Errno;

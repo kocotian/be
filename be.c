@@ -604,27 +604,27 @@ cursormove(const Arg *arg)
 		if (CURBUF(editor).x > 0)
 			--(CURBUF(editor).x);
 		else
-			minibufferPrint("Already on beginning of line");
+			minibufferPrint(lang_info[InfoAlreadyBeg]);
 		break;
 	case 1: /* down */
 		if (CURBUF(editor).y < (signed)CURBUF(editor).rows.len - 1) {
 			if (CURBUF(editor).x >= (unsigned)CURBUF(editor).rows.data[++(CURBUF(editor).y)].len)
 				CURBUF(editor).x = (unsigned)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1;
 		} else
-			minibufferPrint("Already on bottom");
+			minibufferPrint(lang_info[InfoAlreadyBot]);
 		break;
 	case 2: /* up */
 		if (CURBUF(editor).y > 0) {
 			if (CURBUF(editor).x >= (unsigned)CURBUF(editor).rows.data[--(CURBUF(editor).y)].len)
 				CURBUF(editor).x = (unsigned)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1;
 		} else
-			minibufferPrint("Already on top");
+			minibufferPrint(lang_info[InfoAlreadyTop]);
 		break;
 	case 3: /* right */
 		if (CURBUF(editor).x < (signed)CURBUF(editor).rows.data[CURBUF(editor).y].len - 1)
 			++(CURBUF(editor).x);
 		else
-			minibufferPrint("Already on end of line");
+			minibufferPrint(lang_info[InfoAlreadyEnd]);
 		break;
 	}
 }
