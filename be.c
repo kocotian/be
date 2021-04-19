@@ -125,7 +125,9 @@ static void editorParseKey(unsigned char key);
 static inline void edit(void);
 static inline void switchmode(Mode mode);
 /*********/
-static void newBuffer(Buffer *buf);
+static Buffer createBuffer(void);
+static void newBuffer(void);
+static void editBuffer(char *filename);
 static void freeBuffer(Buffer *buf);
 static int writeBuffer(Buffer *buf, char *filename);
 static int minibufferPrint(const char *s);
@@ -355,53 +357,44 @@ switchmode(Mode mode)
 }
 
 /* buffers */
-static void
-newBuffer(Buffer *buf)
+static Buffer
+createBuffer(void)
 {
-	Buffer init;
-	Line ln;
-
-	if (buf == NULL)
-		buf = &init;
-
-	newVector(buf->lines);
-	ln.data = malloc(ln.len = 0);
-	pushVector(buf->lines, ln);
-	*(buf->path) = *(buf->name) = '\0';
-	buf->anonymous = 1;
-	buf->dirty = 0;
-	buf->x = buf->y = 0;
-	buf->mode = ModeNormal;
-	buf->submodeslen = 0;
-
-	if (buf == &init)
-		pushVector(be.buffers, init);
+	Buffer b;
+	newVector(b.lines);
+	*b.path = *b.name = '\0';
+	b.anonymous = 1;
+	b.dirty = 0;
+	b.x = b.y = 0;
+	b.mode = ModeNormal;
+	b.submodeslen = 0;
+	return b;
 }
 
 static void
-editBuffer(Buffer *buf, char *filename)
+newBuffer(void)
 {
-	Buffer init;
+	Line ln;
+	ln.data = malloc(ln.len = 0);
+	pushVector(be.buffers, createBuffer());
+	pushVector(be.buffers.data[be.buffers.len - 1].lines, ln);
+}
+
+static void
+editBuffer(char *filename)
+{
+	Buffer *buf;
 	int fd;
 	struct stat sb;
 	char *data;
 	String fstr, fline;
 	Line fpush;
 
-	if (buf == NULL)
-		buf = &init;
-
-	newVector(buf->lines);
-	*(buf->path) = *(buf->name) = '\0';
+	pushVector(be.buffers, createBuffer());
+	buf = be.buffers.data + be.buffers.len - 1;
 	strncpy(buf->path, filename, PATH_MAX);
-	strncpy(buf->name,
-			(strrchr(filename, '/')) == NULL ?
-				filename : (strrchr(filename, '/') + 1),
-			NAME_MAX);
-	buf->anonymous = buf->dirty = 0;
-	buf->x = buf->y = 0;
-	buf->mode = ModeNormal;
-	buf->submodeslen = 0;
+	strncpy(buf->name, (strrchr(filename, '/')) == NULL ?
+				filename : (strrchr(filename, '/') + 1), NAME_MAX);
 
 	if ((fd = open(filename, O_RDONLY)) < 0)
 		die("open:");
@@ -410,24 +403,18 @@ editBuffer(Buffer *buf, char *filename)
 		die("stat:");
 
 	/* maybe mmap will be better here? */
-	data = malloc(((unsigned)sb.st_size * sizeof *data));
-	if (read(fd, data, (unsigned)sb.st_size) != (unsigned)sb.st_size)
+	if (read(fd, fstr.data = data = malloc(((unsigned)sb.st_size * sizeof *data)),
+				fstr.len = (unsigned)sb.st_size) != (unsigned)sb.st_size)
 		die("read:");
 
-	fstr.data = data;
-	fstr.len = (unsigned)sb.st_size;
-
 	while (Strtok(fstr, &fline, '\n') > 0) {
-		fpush.data = strndup(fline.data, (fpush.len = fline.len));
+		fpush.data = strndup(fline.data, (fpush.len = fline.len - 1));
 		pushVector(buf->lines, fpush);
 		fstr.data += fline.len;
 		fstr.len -= fline.len;
 	}
 
 	free(data);
-
-	if (buf == &init)
-		pushVector(be.buffers, init);
 }
 
 static void
@@ -538,9 +525,9 @@ setup(char *filename)
 	be.focusedwin = 0;
 
 	if (filename == NULL)
-		newBuffer(NULL);
+		newBuffer();
 	else
-		editBuffer(NULL, filename);
+		editBuffer(filename);
 	minibufferPrint(lang_base[ErrDirty]);
 }
 
