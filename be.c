@@ -253,7 +253,7 @@ appendContents(String *ab)
 			xvf = (y + CURBUF.y - FOCUSPOINT == CURBUF.y) ? 1 : 0;
 			xvis = 0;
 			if (xvf) CURBUF.xvis = xvis;
-			for (x = 0; (signed)x < (signed)CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].len; ++x) {
+			for (x = 0; x < (signed)CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].len; ++x) {
 				c = CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].data[x];
 				if (isprint(c)) {
 					/* printable */
@@ -262,14 +262,14 @@ appendContents(String *ab)
 				} else if (c < 0) {
 					/* unicode */
 					/* FIXME: partially broken with horiz. scrolling */
-					int bytes;
+					size_t bytes;
 					if ((unsigned)((c >> 5) & 0x07) == 0x06) bytes = 2;
 					else if ((unsigned)((c >> 4) & 0x0f) == 0x0e) bytes = 3;
 					else if ((unsigned)((c >> 3) & 0x1f) == 0x1e) bytes = 4;
 					else bytes = 1;
 					abAppend(&printl, CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].data + x, bytes);
 					++xvis;
-					x += bytes - 1;
+					x += (signed)bytes - 1;
 				} else {
 					/* control chars */
 					if (c == '\t') {
@@ -290,10 +290,10 @@ appendContents(String *ab)
 				CURBUF.xoff = CURBUF.xvis - (CURWIN.c - 1);
 			else
 				CURBUF.xoff = 0;
-			if (printl.len - CURBUF.xoff > 0)
-			abAppend(ab,
-					(printl.data) + CURBUF.xoff,
-					UMIN(printl.len - CURBUF.xoff, CURWIN.c - 1));
+			if ((signed)printl.len - CURBUF.xoff > 0)
+				abAppend(ab,
+						(printl.data) + CURBUF.xoff,
+						(unsigned)MIN((signed)printl.len - CURBUF.xoff, CURWIN.c - 1));
 		}
 		free(printl.data);
 	}
