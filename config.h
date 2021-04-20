@@ -6,6 +6,9 @@
    focus will be on bottom */
 #define FOCUSPOINT ((be.windows.data[be.focusedwin].r - 1) / 2)
 
+static unsigned int tabwidth    = 4;   /* Tabulation width */
+static char indentationchar     = ' '; /* Character used for indentation */
+
 /* language */
 #include <lang/en_US.h>
 

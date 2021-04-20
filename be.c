@@ -89,7 +89,7 @@ typedef struct Buffer {
 	Array(Line) lines;
 	char path[PATH_MAX], name[NAME_MAX];
 	int anonymous, dirty;
-	ssize_t x, y, xoff;
+	ssize_t x, y, xvis, xoff;
 	Mode mode;
 	Mode submodes[SUBMODES_MAX];
 	size_t submodeslen;
@@ -216,17 +216,12 @@ termRefresh(void)
 	String ab = { NULL, 0 };
 	char cp[24];
 
-	if ((signed)CURBUF.x + (signed)CURBUF.xoff > (signed)(CURWIN.c - 1))
-		CURBUF.xoff = (CURBUF.x + 1) - CURWIN.c;
-	else if ((signed)CURBUF.xoff > (signed)CURBUF.x)
-		CURBUF.xoff = (CURBUF.x);
-
 	abAppend(&ab, "\033[?25l\033[H", 9);
 	appendRows(&ab);
 	appendContents(&ab);
 	appendStatus(&ab);
 	abPrintf(&ab, cp, 24, "\033[%4d;%4ldH\033[?25h\033[%c q",
-			FOCUSPOINT, (CURBUF.x - CURBUF.xoff) + 1,
+			FOCUSPOINT, (CURBUF.xvis - CURBUF.xoff) + 1,
 			CURBUF.mode == ModeEdit ? '5' : '1');
 
 	if ((unsigned)write(STDOUT_FILENO, ab.data, ab.len) != ab.len)
@@ -246,16 +241,61 @@ appendRows(String *ab)
 static void
 appendContents(String *ab)
 {
-	ssize_t y;
-	char cp[19];
+	ssize_t y, x, xvis;
+	int xvf; /* xvis flag */
+	char cp[19], c;
+	String printl;
+
 	for (y = 0; y < CURWIN.r; ++y) {
+		printl.data = malloc(printl.len = 0);
 		if ((unsigned)(y + CURBUF.y - FOCUSPOINT) < CURBUF.lines.len) {
 			abPrintf(ab, cp, 19, "\033[%4ld;0H\033[K", y);
+			xvf = (y + CURBUF.y - FOCUSPOINT == CURBUF.y) ? 1 : 0;
+			xvis = 0;
+			if (xvf) CURBUF.xvis = xvis;
+			for (x = 0; (signed)x < (signed)CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].len; ++x) {
+				c = CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].data[x];
+				if (isprint(c)) {
+					/* printable */
+					abAppend(&printl, &c, 1);
+					++xvis;
+				} else if (c < 0) {
+					/* unicode */
+					/* FIXME: partially broken with horiz. scrolling */
+					int bytes;
+					if ((unsigned)((c >> 5) & 0x07) == 0x06) bytes = 2;
+					else if ((unsigned)((c >> 4) & 0x0f) == 0x0e) bytes = 3;
+					else if ((unsigned)((c >> 3) & 0x1f) == 0x1e) bytes = 4;
+					else bytes = 1;
+					abAppend(&printl, CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].data + x, bytes);
+					++xvis;
+					x += bytes - 1;
+				} else {
+					/* control chars */
+					if (c == '\t') {
+						unsigned int tw;
+						for (tw = 0; tw < tabwidth; ++tw)
+							abAppend(&printl, &indentationchar, 1);
+						xvis += (signed)tabwidth;
+					} else {
+						abAppend(&printl, "^", 1);
+						c = c ^ 0x40;
+						abAppend(&printl, &c, 1);
+						xvis += 2;
+					}
+				}
+				if (xvf && x < CURBUF.x) CURBUF.xvis = xvis;
+			}
+			if (CURBUF.xvis + CURBUF.xoff > (CURWIN.c - 1))
+				CURBUF.xoff = CURBUF.xvis - (CURWIN.c - 1);
+			else
+				CURBUF.xoff = 0;
+			if (printl.len - CURBUF.xoff > 0)
 			abAppend(ab,
-					(CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].data) + CURBUF.xoff,
-					UMIN(CURWIN.c - 1, CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].len -
-						(unsigned)CURBUF.xoff));
+					(printl.data) + CURBUF.xoff,
+					UMIN(printl.len - CURBUF.xoff, CURWIN.c - 1));
 		}
+		free(printl.data);
 	}
 }
 
@@ -370,7 +410,7 @@ createBuffer(void)
 	*b.path = *b.name = '\0';
 	b.anonymous = 1;
 	b.dirty = 0;
-	b.x = b.y = b.xoff = 0;
+	b.x = b.y = b.xvis = b.xoff = 0;
 	b.mode = ModeNormal;
 	b.submodeslen = 0;
 	return b;
