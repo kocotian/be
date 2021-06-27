@@ -309,7 +309,7 @@ appendStatus(String *ab)
 	char cp[256];
 	ssize_t i;
 	i = -1;
-	abPrintf(ab, cp, 256, "\033[%4d;0H\033[K\033[1;37m",
+	abPrintf(ab, cp, 256, "\033[%4d;0H\033[K",
 			(unsigned)(CURWIN.r));
 	while (++i < CURWIN.c) {
 		abAppend(ab, " ", 1);
@@ -317,24 +317,22 @@ appendStatus(String *ab)
 	abAppend(ab, "\r", 1);
 	/* status drawing */
 	{
-		abPrintf(ab, cp, 256, "%c:%c %s L%ld of %ld C%ld-%ld of %ld (%s",
-				CURBUF.anonymous ? 'U' : '-',
-				CURBUF.dirty ? '*' : '-',
-				CURBUF.anonymous ?
-					"*anonymous*" : CURBUF.name,
-				CURBUF.y + 1,
-				CURBUF.lines.len,
-				CURBUF.x + 1,
-				CURBUF.xvis + 1,
-				CURBUF.lines.data[CURBUF.y].len,
-				lang_modes[CURBUF.mode]
-		);
+		abPrintf(ab, cp, 256, "\033[1;33;7m %s", lang_modes[CURBUF.mode]);
 		for (i = 0; i < (signed)CURBUF.submodeslen; ++i) {
 			abPrintf(ab, cp, 256, "/%s",
 					lang_modes[CURBUF.submodes[i]]
 			);
 		}
-		abPrintf(ab, cp, 256, ") %ld buffer(s)",
+		abPrintf(ab, cp, 256, " \033[0m %s | %c:%c L%ld/%ld | C%ld-%ld/%ld | %ld buffer(s)\033[0m",
+				CURBUF.anonymous ?
+					"*anonymous*" : CURBUF.name,
+				CURBUF.anonymous ? 'U' : '-',
+				CURBUF.dirty ? '*' : '-',
+				CURBUF.y + 1,
+				CURBUF.lines.len,
+				CURBUF.x + 1,
+				CURBUF.xvis + 1,
+				CURBUF.lines.data[CURBUF.y].len,
 				be.buffers.len - 1
 		);
 	}
