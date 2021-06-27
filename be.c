@@ -443,14 +443,16 @@ editBuffer(char *filename)
 	pushVector(be.buffers, createBuffer());
 	buf = be.buffers.data + be.buffers.len - 1;
 	strncpy(buf->path, filename, PATH_MAX);
-	strncpy(buf->name, (strrchr(filename, '/')) == NULL ?
-				filename : (strrchr(filename, '/') + 1), NAME_MAX);
+	strncpy(buf->name, ((strrchr(filename, '/')) == NULL ?
+				filename : (strrchr(filename, '/') + 1)), NAME_MAX);
 
 	if ((fd = open(filename, O_RDONLY)) < 0)
 		die("open:");
 
 	if (fstat(fd, &sb) < 0)
 		die("stat:");
+
+	buf->anonymous = 0;
 
 	/* maybe mmap will be better here? */
 	if (read(fd, fstr.data = data = malloc(((unsigned)sb.st_size * sizeof *data)),
@@ -488,8 +490,10 @@ writeBuffer(Buffer *buf, char *filename)
 	}
 	if ((fd = open(filename, O_WRONLY | O_CREAT)) < 0)
 		die("open:");
-	for (i = 0; i < buf->lines.len; ++i)
+	for (i = 0; i < buf->lines.len; ++i) {
 		write(fd, buf->lines.data[i].data, buf->lines.data[i].len);
+		write(fd, "\n", 1);
+	}
 	close(fd);
 	CURBUF.dirty = 0;
 	return 0;
@@ -776,7 +780,8 @@ bufwriteclose(const Arg *arg)
 {
 	(void)arg;
 	if (CURBUF.dirty)
-		writeBuffer(&CURBUF, NULL);
+		if (writeBuffer(&CURBUF, NULL))
+			return;
 	freeBuffer(be.buffers.data + CURBUFINDEX);
 	memmove(be.buffers.data + CURBUFINDEX,
 			be.buffers.data + CURBUFINDEX + 1,
