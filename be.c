@@ -305,7 +305,7 @@ appendStatus(String *ab)
 	char cp[256];
 	ssize_t i;
 	i = -1;
-	abPrintf(ab, cp, 256, "\033[%4d;0H\033[K\033[0;97;100m",
+	abPrintf(ab, cp, 256, "\033[%4d;0H\033[K\033[1;37m",
 			(unsigned)(CURWIN.r));
 	while (++i < CURWIN.c) {
 		abAppend(ab, " ", 1);
@@ -313,7 +313,7 @@ appendStatus(String *ab)
 	abAppend(ab, "\r", 1);
 	/* status drawing */
 	{
-		abPrintf(ab, cp, 256, "%c:%c %s L%ld of %ld C%ld of %ld (%s",
+		abPrintf(ab, cp, 256, "%c:%c %s L%ld of %ld C%ld-%ld of %ld (%s",
 				CURBUF.anonymous ? 'U' : '-',
 				CURBUF.dirty ? '*' : '-',
 				CURBUF.anonymous ?
@@ -321,6 +321,7 @@ appendStatus(String *ab)
 				CURBUF.y + 1,
 				CURBUF.lines.len,
 				CURBUF.x + 1,
+				CURBUF.xvis + 1,
 				CURBUF.lines.data[CURBUF.y].len,
 				lang_modes[CURBUF.mode]
 		);
