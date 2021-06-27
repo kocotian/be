@@ -152,6 +152,10 @@ static void ending(const Arg *arg);
 static void insertchar(const Arg *arg);
 static void removechar(const Arg *arg);
 static void openline(const Arg *arg);
+static void deletelinecontent(const Arg *arg);
+static void deleteline(const Arg *arg);
+static void changelinecontent(const Arg *arg);
+static void changeline(const Arg *arg);
 static void bufwriteclose(const Arg *arg);
 static void bufwrite(const Arg *arg);
 static void bufclose(const Arg *arg);
@@ -732,6 +736,38 @@ openline(const Arg *arg)
 		CURBUF.lines.data[CURBUF.y - 1].len = (unsigned)CURBUF.x;
 	}
 	CURBUF.x = 0;
+	switchmode(ModeEdit);
+}
+
+static void
+deletelinecontent(const Arg *arg)
+{
+	if (arg->i > 0)
+		CURBUF.lines.data[CURBUF.y].len = (size_t)arg->i;
+	else if (arg->i < 0)
+		CURBUF.lines.data[CURBUF.y].len = (unsigned)CURBUF.x;
+	else
+		CURBUF.x = (unsigned)(CURBUF.lines.data[CURBUF.y].len = 0);
+}
+
+static void
+deleteline(const Arg *arg)
+{
+	deletelinecontent(arg);
+	if (CURBUF.lines.len < 2 || arg->i < 0)
+		return;
+	free(CURBUF.lines.data[CURBUF.y].data);
+	memmove(CURBUF.lines.data + CURBUF.y,
+			CURBUF.lines.data + CURBUF.y + 1,
+			(CURBUF.lines.len - (unsigned)(CURBUF.y) - 1) *
+				sizeof *(CURBUF.lines.data));
+	--CURBUF.lines.len;
+}
+
+static void
+changeline(const Arg *arg)
+{
+	deletelinecontent(arg);
 	switchmode(ModeEdit);
 }
 

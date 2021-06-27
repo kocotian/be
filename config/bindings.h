@@ -24,6 +24,11 @@ normalbindings[] = {
 	{ ModNone,      'O',    openline,       {1} },
 	{ ModNone,      '\r',   openline,       {2} },
 
+	{ ModNone,      'd',    deleteline,     {0} },
+	{ ModShift,     'd',    deleteline,     {.i = -1} },
+	{ ModNone,      'c',    changeline,     {0} },
+	{ ModShift,     'c',    changeline,     {.i = -1} },
+
 	/* Submodes */
 	{ ModNone,      'g',    globalsubmode,  {0} },
 
