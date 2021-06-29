@@ -444,13 +444,19 @@ editBuffer(char *filename)
 	strncpy(buf->name, ((strrchr(filename, '/')) == NULL ?
 				filename : (strrchr(filename, '/') + 1)), NAME_MAX);
 
+	buf->anonymous = 0;
+
+	if (stat(filename, &sb) < 0) {
+		errno = 0;
+		pushVector(be.buffers.data[be.buffers.len - 1].lines, fpush);
+		return;
+	}
+
 	if ((fd = open(filename, O_RDONLY)) < 0)
 		die("open:");
 
 	if (fstat(fd, &sb) < 0)
 		die("stat:");
-
-	buf->anonymous = 0;
 
 	/* maybe mmap will be better here? */
 	if (read(fd, fstr.data = data = malloc(((unsigned)sb.st_size * sizeof *data)),
@@ -486,7 +492,7 @@ writeBuffer(Buffer *buf, char *filename)
 		else
 			filename = buf->path;
 	}
-	if ((fd = open(filename, O_WRONLY | O_CREAT)) < 0)
+	if ((fd = open(filename, O_WRONLY | O_CREAT, 0755)) < 0)
 		die("open:");
 	for (i = 0; i < buf->lines.len; ++i) {
 		write(fd, buf->lines.data[i].data, buf->lines.data[i].len);
