@@ -29,6 +29,8 @@ normalbindings[] = {
 	{ ModNone,      'c',    changeline,     {0} },
 	{ ModShift,     'c',    changeline,     {.i = -1} },
 
+	{ ModNone,      'm',    togglemark,     {0} },
+
 	/* Submodes */
 	{ ModNone,      'g',    globalsubmode,  {0} },
 

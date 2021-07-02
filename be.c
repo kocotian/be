@@ -83,6 +83,7 @@ typedef struct Key {
 typedef struct Line {
 	char *data;
 	size_t len;
+	int isMarked;
 } Line;
 
 typedef struct Buffer {
@@ -106,6 +107,8 @@ typedef struct Binding {
 } Binding;
 
 /* prototypes */
+static inline Line newLine(size_t siz);
+/*********/
 static void rawOn(void);
 static void rawRestore(void);
 static void getws(int *r, int *c);
@@ -156,6 +159,7 @@ static void deletelinecontent(const Arg *arg);
 static void deleteline(const Arg *arg);
 static void changelinecontent(const Arg *arg);
 static void changeline(const Arg *arg);
+static void togglemark(const Arg *arg);
 static void bufwriteclose(const Arg *arg);
 static void bufwrite(const Arg *arg);
 static void bufclose(const Arg *arg);
@@ -174,6 +178,13 @@ char *argv0;
 
 /* config */
 #include "config.h"
+
+/* constructors */
+static inline Line
+newLine(size_t siz)
+{
+	return (Line){ malloc(siz), 0, 0 };
+}
 
 /* terminal */
 static void
@@ -257,6 +268,10 @@ appendContents(String *ab)
 			xvf = (y + CURBUF.y - FOCUSPOINT == CURBUF.y) ? 1 : 0;
 			xvis = 0;
 			if (xvf) CURBUF.xvis = xvis;
+			if (CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].isMarked)
+				abAppend(&printl, "\033[34m", 5);
+			else
+				abAppend(&printl, "\033[0m", 4);
 			for (x = 0; x < (signed)CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].len; ++x) {
 				c = CURBUF.lines.data[y + CURBUF.y - FOCUSPOINT].data[x];
 				if (isprint(c)) {
@@ -422,10 +437,8 @@ createBuffer(void)
 static void
 newBuffer(void)
 {
-	Line ln;
-	ln.data = malloc(ln.len = 0);
 	pushVector(be.buffers, createBuffer());
-	pushVector(be.buffers.data[be.buffers.len - 1].lines, ln);
+	pushVector(be.buffers.data[be.buffers.len - 1].lines, newLine(0));
 }
 
 static void
@@ -448,7 +461,7 @@ editBuffer(char *filename)
 
 	if (stat(filename, &sb) < 0) {
 		errno = 0;
-		pushVector(be.buffers.data[be.buffers.len - 1].lines, fpush);
+		pushVector(be.buffers.data[be.buffers.len - 1].lines, newLine(0));
 		return;
 	}
 
@@ -465,6 +478,7 @@ editBuffer(char *filename)
 
 	while (Strtok(fstr, &fline, '\n') > 0) {
 		fpush.data = strndup(fline.data, (fpush.len = fline.len - 1));
+		fpush.isMarked = 0;
 		pushVector(buf->lines, fpush);
 		fstr.data += fline.len;
 		fstr.len -= fline.len;
@@ -777,6 +791,12 @@ changeline(const Arg *arg)
 {
 	deletelinecontent(arg);
 	switchmode(ModeEdit);
+}
+
+static void
+togglemark(const Arg *arg)
+{
+	CURBUF.lines.data[CURBUF.y].isMarked = !(CURBUF.lines.data[CURBUF.y].isMarked);
 }
 
 static void
