@@ -14,3 +14,6 @@ static char indentationchar     = ' '; /* Character used for indentation */
 
 /* key bindings */
 #include <config/bindings.h>
+
+/* commands */
+#include <config/commands.h>

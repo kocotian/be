@@ -79,6 +79,13 @@ typedef struct Key {
 	const Arg arg;
 } Key;
 
+typedef struct Command {
+	char *cmd;
+	char *alias;
+	void (*func)();
+	const Arg arg;
+} Command;
+
 typedef struct Line {
 	char *data;
 	size_t len;
@@ -163,6 +170,7 @@ static void togglemark(const Arg *arg);
 static void execcmd(const Arg *arg);
 static void cmdinsertchar(const Arg *arg);
 static void cmdremovechar(const Arg *arg);
+static void shell(const Arg *arg, String cmd);
 static void bufwriteclose(const Arg *arg);
 static void bufwrite(const Arg *arg);
 static void bufclose(const Arg *arg);
@@ -825,30 +833,19 @@ static void
 execcmd(const Arg *arg)
 {
 	String token, cmd;
+	size_t i;
 	cmd = be.cmd;
 	(void)arg;
+	Arg a;
 	Strtok2(&cmd, &token, ' ');
-	if (0) {
-	} else if (!Strcmpc(token, "z") || !Strcmpc(token, "wq")) {
-		bufwriteclose(&nullarg);
-	} else if (!Strcmpc(token, "w") || !Strcmpc(token, "write")) {
-		bufwrite(&nullarg);
-	} else if (!Strcmpc(token, "c") || !Strcmpc(token, "close")) {
-		bufclose(&nullarg);
-	} else if (!Strcmpc(token, "q") || !Strcmpc(token, "quit")) {
-		bufkill(&nullarg);
-	} else if (!Strcmpc(token, "sh")) {
-		char *shcmd = malloc(cmd.len + 1);
-		rawRestore();
-		strncpy(shcmd, cmd.data, cmd.len)[cmd.len] = 0;
-		puts("");
-		if (system(shcmd))
-			printf("\"%s\" failed\n", shcmd);
-		free(shcmd);
-		puts(lang_info[InfoPressAnyKey]);
-		rawOn();
-		while ((read(STDIN_FILENO, &shcmd, 1)) != 1);
-	} else {
+	for (i = 0; i < LEN(commands); ++i) {
+		if (!Strcmpc(token, commands[i].cmd)
+		||  !Strcmpc(token, commands[i].alias)) {
+			(commands[i].func)(commands[i].arg, cmd);
+			break;
+		}
+	}
+	if (i == LEN(commands)) {
 		minibufferError(lang_err[ErrCmdNotFound]);
 	}
 	be.cmd.len = 0;
@@ -876,6 +873,21 @@ cmdremovechar(const Arg *arg)
 			be.cmd.data + be.cmd.len,
 			be.cmd.len - (unsigned)be.cmd.len);
 	--(be.cmd.len);
+}
+
+static void
+shell(const Arg *arg, String cmd)
+{
+	char *shcmd = malloc(cmd.len + 1);
+	rawRestore();
+	strncpy(shcmd, cmd.data, cmd.len)[cmd.len] = 0;
+	puts("");
+	if (system(shcmd))
+		printf("\"%s\" failed\n", shcmd);
+	free(shcmd);
+	puts(lang_info[InfoPressAnyKey]);
+	rawOn();
+	while ((read(STDIN_FILENO, &shcmd, 1)) != 1);
 }
 
 static void
