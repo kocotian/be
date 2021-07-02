@@ -20,6 +20,7 @@ String toString(char *s);
 int Strcmp(String a, String b);
 int Strcmpc(String s1, char *s2);
 ssize_t Strtok(String string, String *out, char c);
+ssize_t Strtok2(String *i, String *o, char c);
 String Striden(String string);
 String Strtrim(String str);
 

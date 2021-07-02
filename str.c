@@ -41,6 +41,31 @@ Strtok(String string, String *out, char c)
 	return (tmpptr - string.data);
 }
 
+ssize_t
+Strtok2(String *i, String *o, char c)
+{
+	ssize_t n;
+
+	if (!i->len) return 0;
+
+	*o = *i;
+
+	for (n = 0; n < i->len; ++n) {
+		if (i->data[n] == c) break;
+	}
+
+	o->len = n;
+	if (n == i->len) {
+		i->data += ++n;
+		i->len = 0;
+	} else {
+		i->data += ++n;
+		i->len -= n;
+	}
+
+	return n;
+}
+
 String
 Striden(String str)
 {
