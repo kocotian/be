@@ -60,7 +60,7 @@ typedef enum Mod {
 
 typedef enum Mode {
 	ModeNormal, ModeEdit,
-	ModeBuffer,
+	ModeBuffer, ModeCommand,
 	SubModeGlobal,
 } Mode;
 
@@ -148,6 +148,7 @@ static void insertmode(const Arg *arg);
 static void appendmode(const Arg *arg);
 static void globalsubmode(const Arg *arg);
 static void buffermode(const Arg *arg);
+static void commandmode(const Arg *arg);
 static void cursormove(const Arg *arg);
 static void beginning(const Arg *arg);
 static void ending(const Arg *arg);
@@ -159,6 +160,9 @@ static void deleteline(const Arg *arg);
 static void changelinecontent(const Arg *arg);
 static void changeline(const Arg *arg);
 static void togglemark(const Arg *arg);
+static void execcmd(const Arg *arg);
+static void cmdinsertchar(const Arg *arg);
+static void cmdremovechar(const Arg *arg);
 static void bufwriteclose(const Arg *arg);
 static void bufwrite(const Arg *arg);
 static void bufclose(const Arg *arg);
@@ -171,8 +175,10 @@ static struct {
 	Array(Window) windows;
 	int focusedwin;
 	int r, c;
+	String cmd;
 } be;
 
+const Arg nullarg = {.i = 0};
 char *argv0;
 
 /* config */
@@ -237,6 +243,9 @@ termRefresh(void)
 	abPrintf(&ab, cp, 24, "\033[%4d;%4ldH\033[?25h\033[%c q",
 			FOCUSPOINT, (CURBUF.xvis - CURBUF.xoff) + 1,
 			CURBUF.mode == ModeEdit ? '5' : '1');
+	if (CURBUF.mode == ModeCommand)
+		abPrintf(&ab, cp, 24, "\033[%4d;%4ldH",
+				be.r, (be.cmd.len) + 2);
 
 	if ((unsigned)write(STDOUT_FILENO, ab.data, ab.len) != ab.len)
 		die("write:");
@@ -351,6 +360,10 @@ appendStatus(String *ab)
 		);
 	}
 	abAppend(ab, "\r\033[0m", 6);
+	if (CURBUF.mode == ModeCommand) {
+		abAppend(ab, "\r\n\033[K:", 6);
+		abAppend(ab, be.cmd.data, be.cmd.len);
+	}
 }
 
 /* append buffer */
@@ -594,6 +607,7 @@ setup(char *filename)
 	w.buffer = 1;
 	pushVector(be.windows, w);
 	be.focusedwin = 0;
+	be.cmd.data = malloc(be.cmd.len = 0);
 
 	if (filename == NULL)
 		newBuffer();
@@ -673,6 +687,13 @@ buffermode(const Arg *arg)
 	switchmode(ModeBuffer);
 	editorParseKey(editorGetKey());
 	switchmode(ModeNormal);
+}
+
+static void
+commandmode(const Arg *arg)
+{
+	(void)arg;
+	switchmode(ModeCommand);
 }
 
 static void
@@ -798,6 +819,63 @@ static void
 togglemark(const Arg *arg)
 {
 	CURBUF.lines.data[CURBUF.y].isMarked = !(CURBUF.lines.data[CURBUF.y].isMarked);
+}
+
+static void
+execcmd(const Arg *arg)
+{
+	String token, cmd;
+	cmd = be.cmd;
+	(void)arg;
+	Strtok2(&cmd, &token, ' ');
+	if (0) {
+	} else if (!Strcmpc(token, "z") || !Strcmpc(token, "wq")) {
+		bufwriteclose(&nullarg);
+	} else if (!Strcmpc(token, "w") || !Strcmpc(token, "write")) {
+		bufwrite(&nullarg);
+	} else if (!Strcmpc(token, "c") || !Strcmpc(token, "close")) {
+		bufclose(&nullarg);
+	} else if (!Strcmpc(token, "q") || !Strcmpc(token, "quit")) {
+		bufkill(&nullarg);
+	} else if (!Strcmpc(token, "sh")) {
+		char *shcmd = malloc(cmd.len + 1);
+		rawRestore();
+		strncpy(shcmd, cmd.data, cmd.len)[cmd.len] = 0;
+		puts("");
+		if (system(shcmd))
+			printf("\"%s\" failed\n", shcmd);
+		free(shcmd);
+		puts(lang_info[InfoPressAnyKey]);
+		rawOn();
+		while ((read(STDIN_FILENO, &shcmd, 1)) != 1);
+	} else {
+		minibufferError(lang_err[ErrCmdNotFound]);
+	}
+	be.cmd.len = 0;
+	switchmode(ModeNormal);
+}
+
+static void
+cmdinsertchar(const Arg *arg)
+{
+	(void)arg;
+	be.cmd.data = realloc(be.cmd.data, ++be.cmd.len + 1);
+	memmove(be.cmd.data + be.cmd.len + 1,
+			be.cmd.data + be.cmd.len,
+			be.cmd.len - (unsigned)be.cmd.len);
+
+	be.cmd.data[be.cmd.len - 1] = arg->c;
+}
+
+static void
+cmdremovechar(const Arg *arg)
+{
+	(void)arg;
+	if (be.cmd.len <= 0) return;
+	memmove(be.cmd.data + be.cmd.len - 1,
+			be.cmd.data + be.cmd.len,
+			be.cmd.len - (unsigned)be.cmd.len);
+	--(be.cmd.len);
 }
 
 static void

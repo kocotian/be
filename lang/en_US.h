@@ -8,6 +8,7 @@ static char
 	[ModeNormal]        = "Normal",
 	[ModeEdit]          = "Edit",
 	[ModeBuffer]        = "Buffer",
+	[ModeCommand]       = "Command",
 	[SubModeGlobal]     = "Global",
 },
 *lang_info[] = {
@@ -15,10 +16,12 @@ static char
 	[InfoAlreadyBot]    = "Already on bottom",
 	[InfoAlreadyTop]    = "Already on top",
 	[InfoAlreadyEnd]    = "Already on end of line",
+	[InfoPressAnyKey]   = "Press any key to continue",
 },
 *lang_err[] = {
 	[ErrUsage]          = "usage",
 	[ErrScreenTooSmall] = "screen is too small (min. %dx%d)",
 	[ErrDirty]          = "buffer have unsaved changes",
 	[ErrWriteAnon]      = "cannot write anonymous buffer without filename",
+	[ErrCmdNotFound]    = "command not found",
 };

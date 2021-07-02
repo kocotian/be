@@ -31,8 +31,9 @@ normalbindings[] = {
 
 	{ ModNone,      'm',    togglemark,     {0} },
 
-	/* Submodes */
+	/* other modes */
 	{ ModNone,      'g',    globalsubmode,  {0} },
+	{ ModNone,      ':',    commandmode,    {0} },
 
 	/* other */
 	{ ModShift,     'z',    buffermode,     {0} },
@@ -56,6 +57,14 @@ bufferbindings[] = {
 	{ ModNone,      0,      echoe,          {.v = "Key is not bound"} },
 },
 
+commandbindings[] = {
+	/* modifier     key     function        argument */
+	{ ModNone,      033,    normalmode,     {1} },
+	{ ModNone,      '\r',   execcmd,        {0} },
+	{ ModNone,      127,    cmdremovechar,  {0} },
+	{ ModNone,      0,      cmdinsertchar,  {.v = REPLACE} },
+},
+
 /* submodes */
 s_globalbindings[] = {
 	/* modifier     key     function        argument */
@@ -74,5 +83,7 @@ static Binding bindings[] = {
 	[ModeEdit]          = BIND(editbindings),
 	[ModeNormal]        = BIND(normalbindings),
 	[ModeBuffer]        = BIND(bufferbindings),
+	[ModeCommand]       = BIND(commandbindings),
+
 	[SubModeGlobal]     = BIND(s_globalbindings),
 };
