@@ -639,17 +639,19 @@ normalmode(const Arg *arg)
 static void
 insertmode(const Arg *arg)
 {
+	Arg a = {.i = 0};
 	if (arg->i)
-		beginning(NULL);
+		beginning(&a);
 	switchmode(ModeEdit);
 }
 
 static void
 appendmode(const Arg *arg)
 {
+	Arg a = {.i = 0};
 	++CURBUF.x;
 	if (arg->i)
-		ending(NULL);
+		ending(&a);
 	if (CURBUF.x > (signed)CURBUF.lines.data[CURBUF.y].len)
 		CURBUF.x = (signed)CURBUF.lines.data[CURBUF.y].len;
 	switchmode(ModeEdit);
@@ -697,16 +699,16 @@ cursormove(const Arg *arg)
 static void
 beginning(const Arg *arg)
 {
-	if (arg->ui == 0) CURBUF.x = 0;
-	else if (arg->ui == 1) CURBUF.y = 0;
+	if (!arg->i) CURBUF.x = 0;
+	else CURBUF.y = 0;
 }
 
 static void
 ending(const Arg *arg)
 {
-	if (arg->ui == 0)
+	if (!arg->i)
 		CURBUF.x = MAX(0, (signed)CURBUF.lines.data[CURBUF.y].len);
-	else if (arg->ui == 1)
+	else
 		CURBUF.y = MAX(0, (signed)CURBUF.lines.len - 1);
 }
 
