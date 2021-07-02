@@ -632,8 +632,8 @@ echoe(const Arg *arg)
 static void
 normalmode(const Arg *arg)
 {
-	(void)arg;
 	switchmode(ModeNormal);
+	if (arg->ui == 0 && CURBUF.x > 0) --CURBUF.x;
 }
 
 static void
