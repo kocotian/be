@@ -9,7 +9,6 @@ static char
 	[ModeEdit]          = "Edit",
 	[ModeBuffer]        = "Buffer",
 	[SubModeGlobal]     = "Global",
-	[SubModeMovement]   = "Movement",
 },
 *lang_info[] = {
 	[InfoAlreadyBeg]    = "Already on beginning of line",

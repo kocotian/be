@@ -62,7 +62,6 @@ typedef enum Mode {
 	ModeNormal, ModeEdit,
 	ModeBuffer,
 	SubModeGlobal,
-	SubModeMovement,
 } Mode;
 
 typedef union Arg {
@@ -661,9 +660,7 @@ globalsubmode(const Arg *arg)
 {
 	(void)arg;
 	submodePush(&CURBUF, SubModeGlobal);
-	submodePush(&CURBUF, SubModeMovement);
 	editorParseKey(editorGetKey());
-	submodePop(&CURBUF); /* SubModeMovement */
 	submodePop(&CURBUF); /* SubModeGlobal */
 }
 
@@ -700,15 +697,17 @@ cursormove(const Arg *arg)
 static void
 beginning(const Arg *arg)
 {
-	(void)arg;
-	CURBUF.x = 0;
+	if (arg->ui == 0) CURBUF.x = 0;
+	else if (arg->ui == 1) CURBUF.y = 0;
 }
 
 static void
 ending(const Arg *arg)
 {
-	(void)arg;
-	CURBUF.x = MAX(0, (signed)CURBUF.lines.data[CURBUF.y].len);
+	if (arg->ui == 0)
+		CURBUF.x = MAX(0, (signed)CURBUF.lines.data[CURBUF.y].len);
+	else if (arg->ui == 1)
+		CURBUF.y = MAX(0, (signed)CURBUF.lines.len - 1);
 }
 
 static void

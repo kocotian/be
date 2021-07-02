@@ -10,15 +10,15 @@ normalbindings[] = {
 	{ ModNone,      'k',    cursormove,     {.i = 2} },
 	{ ModNone,      'l',    cursormove,     {.i = 3} },
 
+	{ ModNone,      '0',    beginning,      {0} },
+	{ ModNone,      '$',    ending,         {0} },
+	{ ModShift,     'g',    ending,         {1} }, /* alternate g$ for vim powerusers */
+
 	/* edit mode */
 	{ ModNone,      'i',    insertmode,     {.i = 0} },
 	{ ModShift,     'i',    insertmode,     {.i = 1} },
 	{ ModNone,      'a',    appendmode,     {.i = 0} },
 	{ ModShift,     'a',    appendmode,     {.i = 1} },
-
-	/* advanced movement */
-	{ ModNone,      '0',    beginning,      {0} },
-	{ ModNone,      '$',    ending,         {0} },
 
 	{ ModNone,      'o',    openline,       {0} },
 	{ ModNone,      'O',    openline,       {1} },
@@ -59,10 +59,11 @@ bufferbindings[] = {
 /* submodes */
 s_globalbindings[] = {
 	/* modifier     key     function        argument */
-	{ ModNone,      0,      echoe,          {.v = "Key is not bound"} },
-},
+	{ ModNone,      '0',    beginning,      {1} },
+	{ ModNone,      '$',    ending,         {1} },
 
-s_movementbindings[] = {
+	{ ModNone,      'g',    beginning,      {1} }, /* alternate g0 for vim powerusers */
+
 	{ ModNone,      0,      echoe,          {.v = "Key is not bound"} },
 };
 
@@ -74,5 +75,4 @@ static Binding bindings[] = {
 	[ModeNormal]        = BIND(normalbindings),
 	[ModeBuffer]        = BIND(bufferbindings),
 	[SubModeGlobal]     = BIND(s_globalbindings),
-	[SubModeMovement]   = BIND(s_movementbindings),
 };
