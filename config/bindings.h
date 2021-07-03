@@ -14,6 +14,9 @@ normalbindings[] = {
 	{ ModNone,      '$',    ending,         {0} },
 	{ ModShift,     'g',    ending,         {1} }, /* alternate g$ for vim powerusers */
 
+	{ ModNone,      'f',    findchar,       {0} },
+	{ ModShift,     'f',    findchar,       {1} },
+
 	/* edit mode */
 	{ ModNone,      'i',    insertmode,     {.i = 0} },
 	{ ModShift,     'i',    insertmode,     {.i = 1} },

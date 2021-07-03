@@ -168,6 +168,7 @@ static void commandmode(const Arg *arg);
 static void cursormove(const Arg *arg);
 static void beginning(const Arg *arg);
 static void ending(const Arg *arg);
+static void findchar(const Arg *arg);
 static void insertchar(const Arg *arg, const IArg *iarg);
 static void removechar(const Arg *arg);
 static void openline(const Arg *arg);
@@ -742,6 +743,25 @@ ending(const Arg *arg)
 		CURBUF.x = MAX(0, (signed)CURBUF.lines.data[CURBUF.y].len);
 	else
 		CURBUF.y = MAX(0, (signed)CURBUF.lines.len - 1);
+}
+
+static void
+findchar(const Arg *arg)
+{
+	unsigned char ch = editorGetKey();
+	Line *ln = &(CURBUF.lines.data[CURBUF.y]);
+	ssize_t i;
+	if (arg->i) for (i = CURBUF.x - 1; i >= 0; --i) {
+		if (ln->data[i] == ch) {
+			CURBUF.x = i;
+			break;
+		}
+	} else for (i = CURBUF.x + 1; i < (signed)ln->len; ++i) {
+		if (ln->data[i] == ch) {
+			CURBUF.x = i;
+			break;
+		}
+	}
 }
 
 static void
