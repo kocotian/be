@@ -17,6 +17,9 @@ normalbindings[] = {
 	{ ModNone,      'f',    findchar,       {0} },
 	{ ModShift,     'f',    findchar,       {1} },
 
+	{ ModNone,      't',    findchar,       {2} },
+	{ ModShift,     't',    findchar,       {3} },
+
 	/* edit mode */
 	{ ModNone,      'i',    insertmode,     {.i = 0} },
 	{ ModShift,     'i',    insertmode,     {.i = 1} },

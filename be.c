@@ -760,14 +760,14 @@ findchar(const Arg *arg)
 	unsigned char ch = editorGetKey();
 	Line *ln = &(CURBUF.lines.data[CURBUF.y]);
 	ssize_t i;
-	if (arg->i) for (i = CURBUF.x - 1; i >= 0; --i) {
+	if (arg->i % 2) for (i = CURBUF.x - 1; i >= 0; --i) {
 		if (ln->data[i] == ch) {
-			CURBUF.x = i;
+			CURBUF.x = i + (arg->i / 2);
 			break;
 		}
 	} else for (i = CURBUF.x + 1; i < (signed)ln->len; ++i) {
 		if (ln->data[i] == ch) {
-			CURBUF.x = i;
+			CURBUF.x = i - (arg->i / 2) ;
 			break;
 		}
 	}
