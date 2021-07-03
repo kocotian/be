@@ -419,7 +419,7 @@ editorParseKey(unsigned char key)
 {
 	Binding *binds;
 	size_t i;
-	IArg ia = {.c = key};
+	IArg ia = {.c = (char)key};
 	binds = &bindings[CURBUF.submodeslen ?
 		CURBUF.submodes[CURBUF.submodeslen - 1] : CURBUF.mode];
 	for (i = 0; i < binds->len; ++i)
