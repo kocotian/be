@@ -45,7 +45,7 @@ editbindings[] = {
 	{ ModNone,      033,    normalmode,     {0} },
 	{ ModNone,      '\r',   normalmode,     {1} },
 	{ ModNone,      127,    removechar,     {0} },
-	{ ModNone,      0,      insertchar,     {.v = REPLACE} },
+	{ ModNone,      0,      insertchar,     {0} },
 },
 
 bufferbindings[] = {

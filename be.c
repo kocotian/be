@@ -72,10 +72,19 @@ typedef union Arg {
 	const void *v;
 } Arg;
 
+typedef union IArg {
+	int i;
+	unsigned int ui;
+	char c;
+	float f;
+	const void *v;
+	String S;
+} IArg;
+
 typedef struct Key {
 	Mod mod;
 	unsigned char key;
-	void (*func)(const Arg *);
+	void (*func)();
 	const Arg arg;
 } Key;
 
@@ -159,18 +168,17 @@ static void commandmode(const Arg *arg);
 static void cursormove(const Arg *arg);
 static void beginning(const Arg *arg);
 static void ending(const Arg *arg);
-static void insertchar(const Arg *arg);
+static void insertchar(const Arg *arg, const IArg *iarg);
 static void removechar(const Arg *arg);
 static void openline(const Arg *arg);
 static void deletelinecontent(const Arg *arg);
 static void deleteline(const Arg *arg);
-static void changelinecontent(const Arg *arg);
 static void changeline(const Arg *arg);
 static void togglemark(const Arg *arg);
 static void execcmd(const Arg *arg);
-static void cmdinsertchar(const Arg *arg);
+static void cmdinsertchar(const Arg *arg, const IArg *iarg);
 static void cmdremovechar(const Arg *arg);
-static void shell(const Arg *arg, String cmd);
+static void shell(const Arg *arg, const IArg *iarg);
 static void bufwriteclose(const Arg *arg);
 static void bufwrite(const Arg *arg);
 static void bufclose(const Arg *arg);
@@ -410,19 +418,14 @@ editorParseKey(unsigned char key)
 {
 	Binding *binds;
 	size_t i;
-	Arg arg;
+	IArg ia = {.c = key};
 	binds = &bindings[CURBUF.submodeslen ?
 		CURBUF.submodes[CURBUF.submodeslen - 1] : CURBUF.mode];
 	for (i = 0; i < binds->len; ++i)
 		if (key == (binds->keys[i].key
 						& binds->keys[i].mod)
 		|| i == binds->len - 1) {
-			(binds->keys[i].func)
-				(
-					binds->keys[i].arg.v == REPLACE ?
-						arg.c = (char)(key), &arg :
-						&(binds->keys[i].arg)
-				);
+			(binds->keys[i].func)(&(binds->keys[i].arg), &ia);
 			return;
 		}
 }
@@ -742,8 +745,9 @@ ending(const Arg *arg)
 }
 
 static void
-insertchar(const Arg *arg)
+insertchar(const Arg *arg, const IArg *iarg)
 {
+	(void)arg;
 	CURBUF.lines.data[CURBUF.y].data =
 		realloc(CURBUF.lines.data[CURBUF.y].data,
 				++CURBUF.lines.data[CURBUF.y].len + 1);
@@ -752,7 +756,7 @@ insertchar(const Arg *arg)
 			CURBUF.lines.data[CURBUF.y].len - (unsigned)CURBUF.x);
 	CURBUF.dirty = 1;
 
-	CURBUF.lines.data[CURBUF.y].data[CURBUF.x++] = arg->c;
+	CURBUF.lines.data[CURBUF.y].data[CURBUF.x++] = iarg->c;
 }
 
 static void
@@ -832,16 +836,16 @@ togglemark(const Arg *arg)
 static void
 execcmd(const Arg *arg)
 {
-	String token, cmd;
+	String token;
+	IArg ia;
 	size_t i;
-	cmd = be.cmd;
+	ia.S = be.cmd;
 	(void)arg;
-	Arg a;
-	Strtok2(&cmd, &token, ' ');
+	Strtok2(&(ia.S), &token, ' ');
 	for (i = 0; i < LEN(commands); ++i) {
 		if (!Strcmpc(token, commands[i].cmd)
 		||  !Strcmpc(token, commands[i].alias)) {
-			(commands[i].func)(commands[i].arg, cmd);
+			(commands[i].func)(commands[i].arg, &(ia.S));
 			break;
 		}
 	}
@@ -853,7 +857,7 @@ execcmd(const Arg *arg)
 }
 
 static void
-cmdinsertchar(const Arg *arg)
+cmdinsertchar(const Arg *arg, const IArg *iarg)
 {
 	(void)arg;
 	be.cmd.data = realloc(be.cmd.data, ++be.cmd.len + 1);
@@ -861,7 +865,7 @@ cmdinsertchar(const Arg *arg)
 			be.cmd.data + be.cmd.len,
 			be.cmd.len - (unsigned)be.cmd.len);
 
-	be.cmd.data[be.cmd.len - 1] = arg->c;
+	be.cmd.data[be.cmd.len - 1] = iarg->c;
 }
 
 static void
@@ -876,15 +880,18 @@ cmdremovechar(const Arg *arg)
 }
 
 static void
-shell(const Arg *arg, String cmd)
+shell(const Arg *arg, const IArg *iarg)
 {
-	char *shcmd = malloc(cmd.len + 1);
+	char *shcmd;
 	rawRestore();
-	strncpy(shcmd, cmd.data, cmd.len)[cmd.len] = 0;
+	if (iarg->S.len) {
+		shcmd = malloc(iarg->S.len + 1);
+		strncpy(shcmd, iarg->S.data, iarg->S.len)[iarg->S.len] = 0;
+	} else shcmd = "$SHELL";
 	puts("");
 	if (system(shcmd))
 		printf("\"%s\" failed\n", shcmd);
-	free(shcmd);
+	if (iarg->S.len) free(shcmd);
 	puts(lang_info[InfoPressAnyKey]);
 	rawOn();
 	while ((read(STDIN_FILENO, &shcmd, 1)) != 1);
