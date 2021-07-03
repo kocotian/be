@@ -23,6 +23,8 @@ normalbindings[] = {
 	{ ModNone,      'a',    appendmode,     {.i = 0} },
 	{ ModShift,     'a',    appendmode,     {.i = 1} },
 
+	{ ModShift,     'r',    replacemode,    {0} },
+
 	{ ModNone,      'o',    openline,       {0} },
 	{ ModNone,      'O',    openline,       {1} },
 	{ ModNone,      '\r',   openline,       {2} },
@@ -49,6 +51,14 @@ editbindings[] = {
 	{ ModNone,      '\r',   normalmode,     {1} },
 	{ ModNone,      127,    removechar,     {0} },
 	{ ModNone,      0,      insertchar,     {0} },
+},
+
+replacebindings[] = {
+	/* modifier     key     function        argument */
+	{ ModNone,      033,    normalmode,     {0} },
+	{ ModNone,      '\r',   normalmode,     {1} },
+	{ ModNone,      127,    cursormove,     {0} },
+	{ ModNone,      0,      replacechar,    {0} },
 },
 
 bufferbindings[] = {
@@ -85,6 +95,7 @@ static Binding bindings[] = {
 	/* mode                    keys */
 	[ModeEdit]          = BIND(editbindings),
 	[ModeNormal]        = BIND(normalbindings),
+	[ModeReplace]       = BIND(replacebindings),
 	[ModeBuffer]        = BIND(bufferbindings),
 	[ModeCommand]       = BIND(commandbindings),
 

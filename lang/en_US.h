@@ -7,6 +7,7 @@ static char
 *lang_modes[] = {
 	[ModeNormal]        = "Normal",
 	[ModeEdit]          = "Edit",
+	[ModeReplace]       = "Replace",
 	[ModeBuffer]        = "Buffer",
 	[ModeCommand]       = "Command",
 	[SubModeGlobal]     = "Global",

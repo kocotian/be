@@ -59,7 +59,7 @@ typedef enum Mod {
 } Mod;
 
 typedef enum Mode {
-	ModeNormal, ModeEdit,
+	ModeNormal, ModeEdit, ModeReplace,
 	ModeBuffer, ModeCommand,
 	SubModeGlobal,
 } Mode;
@@ -162,6 +162,7 @@ static void echoe(const Arg *arg);
 static void normalmode(const Arg *arg);
 static void insertmode(const Arg *arg);
 static void appendmode(const Arg *arg);
+static void replacemode(const Arg *arg);
 static void globalsubmode(const Arg *arg);
 static void buffermode(const Arg *arg);
 static void commandmode(const Arg *arg);
@@ -170,6 +171,7 @@ static void beginning(const Arg *arg);
 static void ending(const Arg *arg);
 static void findchar(const Arg *arg);
 static void insertchar(const Arg *arg, const IArg *iarg);
+static void replacechar(const Arg *arg, const IArg *iarg);
 static void removechar(const Arg *arg);
 static void openline(const Arg *arg);
 static void deletelinecontent(const Arg *arg);
@@ -684,6 +686,13 @@ appendmode(const Arg *arg)
 }
 
 static void
+replacemode(const Arg *arg)
+{
+	(void)arg;
+	switchmode(ModeReplace);
+}
+
+static void
 globalsubmode(const Arg *arg)
 {
 	(void)arg;
@@ -776,6 +785,16 @@ insertchar(const Arg *arg, const IArg *iarg)
 			CURBUF.lines.data[CURBUF.y].len - (unsigned)CURBUF.x);
 	CURBUF.dirty = 1;
 
+	CURBUF.lines.data[CURBUF.y].data[CURBUF.x++] = iarg->c;
+}
+
+static void
+replacechar(const Arg *arg, const IArg *iarg)
+{
+	(void)arg;
+	if (CURBUF.x >= (signed)CURBUF.lines.data[CURBUF.y].len)
+		CURBUF.x = (signed)CURBUF.lines.data[CURBUF.y].len - 1;
+	CURBUF.dirty = 1;
 	CURBUF.lines.data[CURBUF.y].data[CURBUF.x++] = iarg->c;
 }
 
